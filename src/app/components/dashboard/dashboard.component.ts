@@ -161,6 +161,7 @@ export class DashboardComponent implements OnChanges {
   onPipelineSelected(event: Event): void {
     const selectedValue = Number((event.target as HTMLSelectElement).value);
     if (!Number.isFinite(selectedValue) || selectedValue <= 0) return;
+    if (selectedValue === this.config().pipelineId) return;
     this.pipelineChange.emit(selectedValue);
   }
 }

@@ -49,4 +49,21 @@ describe('DashboardComponent', () => {
 
     expect(emitSpy).toHaveBeenCalledWith(2);
   });
+
+  it('should ignore invalid or unchanged pipeline selections', async () => {
+    const fixture = TestBed.createComponent(DashboardComponent);
+    fixture.componentRef.setInput('config', config);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const component = fixture.componentInstance;
+    const emitSpy = vi.spyOn(component.pipelineChange, 'emit');
+
+    component.onPipelineSelected({ target: { value: '0' } } as unknown as Event);
+    component.onPipelineSelected({ target: { value: '-4' } } as unknown as Event);
+    component.onPipelineSelected({ target: { value: 'abc' } } as unknown as Event);
+    component.onPipelineSelected({ target: { value: '1' } } as unknown as Event);
+
+    expect(emitSpy).not.toHaveBeenCalled();
+  });
 });
