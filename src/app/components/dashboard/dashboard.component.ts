@@ -98,7 +98,7 @@ export class DashboardComponent implements OnChanges {
   }
 
   private currentPipelineOption(pipelineId: number): PipelineSummary {
-    return { id: pipelineId, name: `Current Pipeline #${pipelineId}` };
+    return { id: pipelineId, name: `Pipeline #${pipelineId} (Current)` };
   }
 
   refresh(): void {
