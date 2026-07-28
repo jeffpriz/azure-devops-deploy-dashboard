@@ -261,9 +261,7 @@ export class AzureDevOpsService {
                   })
                 ),
                 stages: this.getTimeline(config, run.id).pipe(
-                  map((records) =>
-                    records.filter((r) => r.type === 'Stage')
-                  )
+                  map((records) => this.filterDeploymentStages(records))
                 ),
               }).pipe(map((result) => ({ run, ...result }))),
             10 // max concurrency
@@ -420,6 +418,26 @@ export class AzureDevOpsService {
       typeof candidate.run?.id === 'number' &&
       candidate.run.id > 0 &&
       typeof candidate.run.name === 'string'
+    );
+  }
+
+  /**
+   * Filters timeline records to only include stages that contain deployment jobs.
+   * A stage is considered a deployment stage if it has at least one child record
+   * with type 'Deployment'.
+   */
+  private filterDeploymentStages(records: TimelineRecord[]): TimelineRecord[] {
+    // Collect all stage IDs that have at least one deployment job child.
+    const stageIdsWithDeployments = new Set<string>();
+    for (const record of records) {
+      if (record.type === 'Deployment' && record.parentId) {
+        stageIdsWithDeployments.add(record.parentId);
+      }
+    }
+
+    // Return only stages that have deployment jobs.
+    return records.filter(
+      (r) => r.type === 'Stage' && stageIdsWithDeployments.has(r.id)
     );
   }
 
