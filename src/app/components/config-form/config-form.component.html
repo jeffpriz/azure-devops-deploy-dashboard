@@ -1,0 +1,105 @@
+<section class="config-card">
+  <div class="config-header">
+    <div class="config-logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="28" height="28">
+        <path d="M20.84 2.18L15.93 1l-4.38 4.45L8.1 3.17 3.16 4.55l-.98 5.09 3.1 3.1a8.1 8.1 0 0 0 10.76 10.76l3.1 3.1 5.09-.98 1.38-4.94-2.28-3.45 4.45-4.38-1.18-4.91zM11.28 17.4l-4.68-4.68 6.49-2.49-1.81 7.17z"/>
+      </svg>
+    </div>
+    <h1>Azure DevOps Deploy Dashboard</h1>
+    <p class="subtitle">View the latest deployments across all pipeline stages and environments</p>
+  </div>
+
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <div class="form-group">
+      <label for="orgUrl">Organization URL</label>
+      <input
+        id="orgUrl"
+        type="url"
+        formControlName="organizationUrl"
+        placeholder="https://dev.azure.com/yourorg"
+        [class.error]="isInvalid('organizationUrl')"
+        autocomplete="off"
+      />
+      @if (isInvalid('organizationUrl')) {
+        <span class="error-msg">
+          @if (form.get('organizationUrl')?.errors?.['required']) {
+            Organization URL is required.
+          } @else {
+            Must be a valid URL starting with http:// or https://.
+          }
+        </span>
+      }
+    </div>
+
+    <div class="form-group">
+      <label for="projectName">Project Name</label>
+      <input
+        id="projectName"
+        type="text"
+        formControlName="projectName"
+        placeholder="MyProject"
+        [class.error]="isInvalid('projectName')"
+        autocomplete="off"
+      />
+      @if (isInvalid('projectName')) {
+        <span class="error-msg">Project name is required.</span>
+      }
+    </div>
+
+    <div class="form-group">
+      <label for="pipelineId">Deploy Pipeline ID</label>
+      <input
+        id="pipelineId"
+        type="number"
+        formControlName="pipelineId"
+        placeholder="42"
+        min="1"
+        [class.error]="isInvalid('pipelineId')"
+        autocomplete="off"
+      />
+      @if (isInvalid('pipelineId')) {
+        <span class="error-msg">A valid pipeline ID (positive integer) is required.</span>
+      }
+    </div>
+
+    <div class="form-group">
+      <label for="pat">Personal Access Token (PAT)</label>
+      <div class="pat-wrapper">
+        <input
+          id="pat"
+          [type]="showPat() ? 'text' : 'password'"
+          formControlName="pat"
+          placeholder="••••••••••••••••"
+          [class.error]="isInvalid('pat')"
+          autocomplete="current-password"
+        />
+        <button type="button" class="toggle-pat" (click)="togglePat()" [attr.aria-label]="showPat() ? 'Hide PAT' : 'Show PAT'">
+          @if (showPat()) {
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+              <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+              <line x1="1" y1="1" x2="23" y2="23"/>
+            </svg>
+          } @else {
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          }
+        </button>
+      </div>
+      @if (isInvalid('pat')) {
+        <span class="error-msg">Personal Access Token is required.</span>
+      }
+      <p class="hint">The PAT needs <em>Build (Read)</em> and <em>Release (Read)</em> permissions.</p>
+    </div>
+
+    <button type="submit" class="btn-primary">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+        <polyline points="23 4 23 10 17 10"/>
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+      </svg>
+      Load Dashboard
+    </button>
+  </form>
+</section>

@@ -1,0 +1,348 @@
+.dash-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border);
+
+  .dash-title-group {
+    .dash-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 0 0 0.2rem;
+    }
+    .last-refreshed {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+  }
+
+  .dash-actions {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+  }
+}
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+
+  &:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .spinning {
+    animation: spin 1s linear infinite;
+  }
+}
+
+.btn-secondary {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+
+  &:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.2rem;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-top: 0.75rem;
+
+  &:hover {
+    background: var(--accent-hover);
+  }
+}
+
+/* Loading state */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 4rem 2rem;
+  color: var(--text-muted);
+
+  p {
+    font-size: 0.95rem;
+    margin: 0;
+  }
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error state */
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 3rem 2rem;
+  text-align: center;
+  background: var(--surface-raised);
+  border: 1.5px solid var(--danger-border);
+  border-radius: 10px;
+  color: var(--text-primary);
+
+  svg {
+    color: var(--danger);
+  }
+
+  h3 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+
+  p {
+    margin: 0;
+    max-width: 480px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+  }
+
+  .hint {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+}
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 4rem 2rem;
+  text-align: center;
+  color: var(--text-muted);
+
+  h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.9rem;
+
+    strong {
+      color: var(--text-primary);
+    }
+  }
+}
+
+/* Stage grid */
+.stage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+.stage-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+
+  &:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  }
+
+  .stage-card-header {
+    padding: 1rem 1.25rem 0.85rem;
+    border-bottom: 1px solid var(--border);
+
+    .stage-name-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.4rem;
+    }
+
+    .stage-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 0;
+    }
+
+    .run-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.78rem;
+      color: var(--accent);
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+
+  .stage-card-body {
+    padding: 0.9rem 1.25rem 1.1rem;
+  }
+}
+
+/* Status badges */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+
+  &.status-success {
+    background: var(--success-bg);
+    color: var(--success);
+  }
+  &.status-failed {
+    background: var(--danger-bg);
+    color: var(--danger);
+  }
+  &.status-running {
+    background: var(--warning-bg);
+    color: var(--warning);
+  }
+  &.status-canceled {
+    background: var(--surface-raised);
+    color: var(--text-muted);
+  }
+  &.status-unknown {
+    background: var(--surface-raised);
+    color: var(--text-muted);
+  }
+}
+
+/* Info rows */
+.info-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  font-size: 0.87rem;
+
+  .info-label {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    min-width: 100px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    font-size: 0.82rem;
+
+    svg {
+      flex-shrink: 0;
+    }
+  }
+
+  .info-value {
+    color: var(--text-primary);
+    word-break: break-all;
+    flex: 1;
+  }
+
+  .commit-hash {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  code {
+    font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+    font-size: 0.85em;
+    background: var(--code-bg);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+    color: var(--text-primary);
+  }
+}
+
+.copy-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  color: var(--text-muted);
+  border-radius: 3px;
+  line-height: 0;
+  transition: color 0.15s, background 0.15s;
+
+  &:hover {
+    color: var(--accent);
+    background: var(--accent-bg);
+  }
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0.65rem 0;
+}
+
+.no-build-ref {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
