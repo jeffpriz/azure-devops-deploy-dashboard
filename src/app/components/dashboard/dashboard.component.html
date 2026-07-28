@@ -1,0 +1,171 @@
+<header class="dash-header">
+  <div class="dash-title-group">
+    <h2 class="dash-title">{{ title() }}</h2>
+    @if (lastRefreshed()) {
+      <span class="last-refreshed">Last updated: {{ lastRefreshed() | date:'medium' }}</span>
+    }
+  </div>
+  <div class="dash-actions">
+    <button class="btn-icon" (click)="refresh()" [disabled]="loading()" title="Refresh">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" [class.spinning]="loading()">
+        <polyline points="23 4 23 10 17 10"/>
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+      </svg>
+      Refresh
+    </button>
+    <button class="btn-secondary" (click)="reconfigure.emit()">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+      Reconfigure
+    </button>
+  </div>
+</header>
+
+@if (loading()) {
+  <div class="loading-state">
+    <div class="spinner"></div>
+    <p>Fetching pipeline data from Azure DevOps…</p>
+  </div>
+} @else if (errorMessage()) {
+  <div class="error-state">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <h3>Failed to load dashboard</h3>
+    <p>{{ errorMessage() }}</p>
+    <p class="hint">Common causes: invalid PAT, incorrect organisation URL or project name, pipeline ID not found, or CORS restrictions. See the README for details.</p>
+    <button class="btn-primary" (click)="refresh()">Try Again</button>
+  </div>
+} @else if (stages().length === 0) {
+  <div class="empty-state">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+      <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+    </svg>
+    <h3>No deployment stages found</h3>
+    <p>No runs were found for pipeline #{{ config().pipelineId }} in project <strong>{{ config().projectName }}</strong>.</p>
+  </div>
+} @else {
+  <div class="stage-grid">
+    @for (stage of stages(); track stage.stageIdentifier) {
+      <article class="stage-card">
+        <div class="stage-card-header">
+          <div class="stage-name-row">
+            <h3 class="stage-name">{{ stage.stageName }}</h3>
+            <span class="status-badge" [class]="stageStatusClass(stage)">{{ stageStatusLabel(stage) }}</span>
+          </div>
+          <a class="run-link" [href]="stage.runUrl" target="_blank" rel="noopener noreferrer">
+            Run {{ stage.runName }}
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+          </a>
+        </div>
+
+        <div class="stage-card-body">
+          <!-- Timing -->
+          <div class="info-row">
+            <span class="info-label">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Started
+            </span>
+            <span class="info-value">{{ stage.startTime ? (stage.startTime | date:'medium') : '—' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Finished
+            </span>
+            <span class="info-value">{{ stage.finishTime ? (stage.finishTime | date:'medium') : '—' }}</span>
+          </div>
+
+          @if (stage.buildPipelineName || stage.buildRunId) {
+            <div class="divider"></div>
+
+            <!-- Build pipeline reference -->
+            <div class="info-row">
+              <span class="info-label">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                  <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+                </svg>
+                Build Pipeline
+              </span>
+              <span class="info-value">{{ stage.buildPipelineName ?? '—' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                  <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
+                </svg>
+                Build #
+              </span>
+              <span class="info-value">{{ stage.buildNumber ?? '—' }}</span>
+            </div>
+
+            @if (stage.commitId) {
+              <div class="info-row">
+                <span class="info-label">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <circle cx="12" cy="12" r="4"/><line x1="1.05" y1="12" x2="7" y2="12"/><line x1="17.01" y1="12" x2="22.96" y2="12"/>
+                  </svg>
+                  Commit
+                </span>
+                <span class="info-value commit-hash">
+                  <code>{{ stage.commitShort }}</code>
+                  <button class="copy-btn" (click)="copyToClipboard(stage.commitId!)" title="Copy full commit SHA">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                  </button>
+                </span>
+              </div>
+            }
+
+            @if (stage.sourceBranch) {
+              <div class="info-row">
+                <span class="info-label">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>
+                  </svg>
+                  Branch
+                </span>
+                <span class="info-value"><code>{{ stage.sourceBranch }}</code></span>
+              </div>
+            }
+
+            @if (stage.repositoryName) {
+              <div class="info-row">
+                <span class="info-label">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                  </svg>
+                  Repository
+                </span>
+                <span class="info-value">{{ stage.repositoryName }}</span>
+              </div>
+            }
+
+            @if (stage.requestedFor) {
+              <div class="info-row">
+                <span class="info-label">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                  </svg>
+                  Author
+                </span>
+                <span class="info-value">{{ stage.requestedFor }}</span>
+              </div>
+            }
+          } @else {
+            <div class="divider"></div>
+            <p class="no-build-ref">No build pipeline resource reference found for this run.</p>
+          }
+        </div>
+      </article>
+    }
+  </div>
+}

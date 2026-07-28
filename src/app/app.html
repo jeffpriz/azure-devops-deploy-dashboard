@@ -1,0 +1,11 @@
+<div class="app-shell">
+  @if (!config()) {
+    <main class="config-page">
+      <app-config-form (configSubmit)="onConfigSubmit($event)" />
+    </main>
+  } @else {
+    <main class="dashboard-page">
+      <app-dashboard [config]="config()!" (reconfigure)="onReconfigure()" />
+    </main>
+  }
+</div>
