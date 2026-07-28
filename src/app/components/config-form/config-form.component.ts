@@ -26,7 +26,7 @@ export class ConfigFormComponent {
 
     effect(() => {
       const cfg = this.initialConfig();
-      if (!cfg || !this.form.pristine) return;
+      if (!cfg) return;
       this.form.patchValue({
         organizationUrl: cfg.organizationUrl,
         projectName: cfg.projectName,
