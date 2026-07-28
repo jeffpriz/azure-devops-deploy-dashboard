@@ -1,10 +1,16 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
+import {
+  HttpClient,
+  HttpErrorResponse,
+  HttpHeaders,
+  HttpParams,
+} from '@angular/common/http';
 import {
   Observable,
   forkJoin,
   of,
   from,
+  throwError,
 } from 'rxjs';
 import {
   map,
@@ -37,6 +43,28 @@ const MAX_RUNS_TO_FETCH = 100;
 @Injectable({ providedIn: 'root' })
 export class AzureDevOpsService {
   private http = inject(HttpClient);
+
+  private logError(message: string, error: unknown, context?: Record<string, unknown>): void {
+    console.error(`[AzureDevOpsService] ${message}`, {
+      error,
+      context,
+    });
+  }
+
+  private logInfo(message: string, context?: Record<string, unknown>): void {
+    console.info(`[AzureDevOpsService] ${message}`, { context });
+  }
+
+  private toErrorMessage(error: unknown, fallbackMessage: string): string {
+    if (error instanceof HttpErrorResponse) {
+      const status = error.status ? ` (HTTP ${error.status})` : '';
+      return `${fallbackMessage}${status}`;
+    }
+    if (error instanceof Error && error.message) {
+      return `${fallbackMessage}: ${error.message}`;
+    }
+    return fallbackMessage;
+  }
 
   private buildHeaders(pat: string): HttpHeaders {
     const encoded = btoa(':' + pat);
@@ -75,7 +103,19 @@ export class AzureDevOpsService {
         headers: this.buildHeaders(config.pat),
         params,
       })
-      .pipe(map((res) => res.value));
+      .pipe(
+        map((res) => res.value ?? []),
+        catchError((error) => {
+          this.logError('Failed to fetch pipeline runs.', error, {
+            organizationUrl: config.organizationUrl,
+            projectName: config.projectName,
+            pipelineId: config.pipelineId,
+          });
+          return throwError(() =>
+            new Error(this.toErrorMessage(error, 'Failed to load pipeline runs'))
+          );
+        })
+      );
   }
 
   /** Fetch full run details (includes pipeline resource references). */
@@ -88,7 +128,17 @@ export class AzureDevOpsService {
     return this.http.get<PipelineRun>(url, {
       headers: this.buildHeaders(config.pat),
       params,
-    });
+    }).pipe(
+      catchError((error) => {
+        this.logError('Failed to fetch pipeline run details.', error, {
+          runId,
+          organizationUrl: config.organizationUrl,
+          projectName: config.projectName,
+          pipelineId: config.pipelineId,
+        });
+        return throwError(() => error);
+      })
+    );
   }
 
   /** Fetch the timeline (stage records) for a pipeline run. */
@@ -105,7 +155,15 @@ export class AzureDevOpsService {
       })
       .pipe(
         map((res) => res.records ?? []),
-        catchError(() => of([] as TimelineRecord[]))
+        catchError((error) => {
+          this.logError('Failed to fetch pipeline timeline.', error, {
+            runId,
+            organizationUrl: config.organizationUrl,
+            projectName: config.projectName,
+            pipelineId: config.pipelineId,
+          });
+          return of([] as TimelineRecord[]);
+        })
       );
   }
 
@@ -121,7 +179,17 @@ export class AzureDevOpsService {
         headers: this.buildHeaders(config.pat),
         params,
       })
-      .pipe(catchError(() => of(null)));
+      .pipe(
+        catchError((error) => {
+          this.logError('Failed to fetch build details.', error, {
+            buildId,
+            organizationUrl: config.organizationUrl,
+            projectName: config.projectName,
+            pipelineId: config.pipelineId,
+          });
+          return of(null);
+        })
+      );
   }
 
   /**
@@ -152,7 +220,13 @@ export class AzureDevOpsService {
             (run) =>
               forkJoin({
                 detail: this.getPipelineRunDetail(config, run.id).pipe(
-                  catchError(() => of(run as PipelineRun))
+                  catchError(() => {
+                    this.logInfo(
+                      'Using pipeline run summary as fallback because details could not be loaded.',
+                      { runId: run.id }
+                    );
+                    return of(run as PipelineRun);
+                  })
                 ),
                 stages: this.getTimeline(config, run.id).pipe(
                   map((records) =>
@@ -166,7 +240,17 @@ export class AzureDevOpsService {
           map((enrichedRuns) => this.aggregateStages(config, enrichedRuns))
         );
       }),
-      switchMap((stageMap) => this.resolveBuildInfo(config, stageMap))
+      switchMap((stageMap) => this.resolveBuildInfo(config, stageMap)),
+      catchError((error) => {
+        this.logError('Dashboard load failed.', error, {
+          organizationUrl: config.organizationUrl,
+          projectName: config.projectName,
+          pipelineId: config.pipelineId,
+        });
+        return throwError(() =>
+          new Error(this.toErrorMessage(error, 'Failed to load dashboard data'))
+        );
+      })
     );
   }
 
@@ -280,9 +364,31 @@ export class AzureDevOpsService {
   ): PipelineResourceEntry | null {
     const pipelines = run.resources?.pipelines;
     if (!pipelines) return null;
-    const keys = Object.keys(pipelines);
-    if (keys.length === 0) return null;
-    return pipelines[keys[0]];
+    const resources = Object.values(pipelines);
+    if (resources.length === 0) return null;
+
+    for (const resource of resources) {
+      if (this.isValidPipelineResource(resource)) {
+        return resource;
+      }
+    }
+
+    this.logError(
+      'Malformed pipeline resource: missing required run metadata (id or name).',
+      null,
+      { runId: run.id }
+    );
+    return null;
+  }
+
+  private isValidPipelineResource(resource: unknown): resource is PipelineResourceEntry {
+    if (!resource || typeof resource !== 'object') return false;
+    const candidate = resource as Partial<PipelineResourceEntry>;
+    return (
+      typeof candidate.run?.id === 'number' &&
+      candidate.run.id > 0 &&
+      typeof candidate.run.name === 'string'
+    );
   }
 
   private toDeploymentStageInfo(
@@ -303,9 +409,9 @@ export class AzureDevOpsService {
       runUrl,
       startTime: stage.startTime,
       finishTime: stage.finishTime,
-      buildPipelineName: resource?.pipeline.name ?? null,
-      buildRunId: resource?.run.id ?? null,
-      buildNumber: build?.buildNumber ?? resource?.run.name ?? null,
+      buildPipelineName: resource?.pipeline?.name ?? null,
+      buildRunId: resource?.run?.id ?? null,
+      buildNumber: build?.buildNumber ?? resource?.run?.name ?? null,
       commitId: commitId,
       commitShort: commitId ? commitId.substring(0, 8) : null,
       sourceBranch: build?.sourceBranch
