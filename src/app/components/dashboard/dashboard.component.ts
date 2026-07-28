@@ -85,12 +85,14 @@ export class DashboardComponent implements OnChanges {
           this.pipelineOptions.set(
             selectedExists
               ? pipelines
-              : [{ id: cfg.pipelineId, name: `Pipeline #${cfg.pipelineId}` }, ...pipelines]
+              : [{ id: cfg.pipelineId, name: `Current Pipeline #${cfg.pipelineId}` }, ...pipelines]
           );
           this.pipelineOptionsLoading.set(false);
         },
         error: () => {
-          this.pipelineOptions.set([{ id: cfg.pipelineId, name: `Pipeline #${cfg.pipelineId}` }]);
+          this.pipelineOptions.set([
+            { id: cfg.pipelineId, name: `Current Pipeline #${cfg.pipelineId}` },
+          ]);
           this.pipelineOptionsLoading.set(false);
         },
       });
