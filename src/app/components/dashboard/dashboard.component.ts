@@ -9,7 +9,11 @@ import {
   inject,
 } from '@angular/core';
 import { DatePipe } from '@angular/common';
-import { PipelineConfig, DeploymentStageInfo } from '../../models/azure-devops.models';
+import {
+  PipelineConfig,
+  DeploymentStageInfo,
+  PipelineSummary,
+} from '../../models/azure-devops.models';
 import { AzureDevOpsService } from '../../services/azure-devops.service';
 
 @Component({
@@ -21,11 +25,14 @@ import { AzureDevOpsService } from '../../services/azure-devops.service';
 })
 export class DashboardComponent implements OnChanges {
   readonly config = input.required<PipelineConfig>();
+  readonly pipelineChange = output<number>();
   readonly reconfigure = output<void>();
 
   private adoService = inject(AzureDevOpsService);
 
   stages = signal<DeploymentStageInfo[]>([]);
+  pipelineOptions = signal<PipelineSummary[]>([]);
+  pipelineOptionsLoading = signal(false);
   loading = signal(false);
   errorMessage = signal<string | null>(null);
   lastRefreshed = signal<Date | null>(null);
@@ -37,8 +44,56 @@ export class DashboardComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['config']) {
+      const change = changes['config'];
+      if (
+        change.firstChange ||
+        this.hasPipelineSourceChanged(
+          change.previousValue as PipelineConfig | undefined,
+          change.currentValue as PipelineConfig
+        )
+      ) {
+        this.loadPipelineOptions();
+      }
       this.refresh();
     }
+  }
+
+  private hasPipelineSourceChanged(
+    previous: PipelineConfig | undefined,
+    current: PipelineConfig
+  ): boolean {
+    if (!previous) return true;
+    return (
+      previous.organizationUrl !== current.organizationUrl ||
+      previous.projectName !== current.projectName ||
+      previous.pat !== current.pat
+    );
+  }
+
+  private loadPipelineOptions(): void {
+    const cfg = this.config();
+    this.pipelineOptionsLoading.set(true);
+    this.adoService
+      .listPipelines({
+        organizationUrl: cfg.organizationUrl,
+        projectName: cfg.projectName,
+        pat: cfg.pat,
+      })
+      .subscribe({
+        next: (pipelines) => {
+          const selectedExists = pipelines.some((pipeline) => pipeline.id === cfg.pipelineId);
+          this.pipelineOptions.set(
+            selectedExists
+              ? pipelines
+              : [{ id: cfg.pipelineId, name: `Pipeline #${cfg.pipelineId}` }, ...pipelines]
+          );
+          this.pipelineOptionsLoading.set(false);
+        },
+        error: () => {
+          this.pipelineOptions.set([{ id: cfg.pipelineId, name: `Pipeline #${cfg.pipelineId}` }]);
+          this.pipelineOptionsLoading.set(false);
+        },
+      });
   }
 
   refresh(): void {
@@ -101,5 +156,11 @@ export class DashboardComponent implements OnChanges {
 
   copyToClipboard(text: string): void {
     navigator.clipboard.writeText(text).catch(() => undefined);
+  }
+
+  onPipelineSelected(event: Event): void {
+    const selectedValue = Number((event.target as HTMLSelectElement).value);
+    if (!Number.isFinite(selectedValue) || selectedValue <= 0) return;
+    this.pipelineChange.emit(selectedValue);
   }
 }

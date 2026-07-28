@@ -1,4 +1,4 @@
-import { Component, output, signal } from '@angular/core';
+import { Component, effect, input, output, signal } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { PipelineConfig } from '../../models/azure-devops.models';
 
@@ -10,6 +10,7 @@ import { PipelineConfig } from '../../models/azure-devops.models';
   styleUrl: './config-form.component.scss',
 })
 export class ConfigFormComponent {
+  readonly initialConfig = input<PipelineConfig | null>(null);
   readonly configSubmit = output<PipelineConfig>();
 
   form: FormGroup;
@@ -21,6 +22,17 @@ export class ConfigFormComponent {
       projectName: ['', Validators.required],
       pipelineId: ['', [Validators.required, Validators.min(1)]],
       pat: ['', Validators.required],
+    });
+
+    effect(() => {
+      const cfg = this.initialConfig();
+      if (!cfg) return;
+      this.form.patchValue({
+        organizationUrl: cfg.organizationUrl,
+        projectName: cfg.projectName,
+        pipelineId: cfg.pipelineId,
+        pat: cfg.pat,
+      });
     });
   }
 

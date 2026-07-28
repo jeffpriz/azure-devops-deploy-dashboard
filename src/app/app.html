@@ -1,11 +1,15 @@
 <div class="app-shell">
-  @if (!config()) {
+  @if (showingConfig()) {
     <main class="config-page">
-      <app-config-form (configSubmit)="onConfigSubmit($event)" />
+      <app-config-form [initialConfig]="config()" (configSubmit)="onConfigSubmit($event)" />
     </main>
-  } @else {
+  } @else if (config()) {
     <main class="dashboard-page">
-      <app-dashboard [config]="config()!" (reconfigure)="onReconfigure()" />
+      <app-dashboard
+        [config]="config()!"
+        (pipelineChange)="onPipelineChange($event)"
+        (reconfigure)="onReconfigure()"
+      />
     </main>
   }
 </div>
