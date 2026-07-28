@@ -5,6 +5,11 @@ export interface PipelineConfig {
   pat: string;
 }
 
+export interface PipelineSummary {
+  id: number;
+  name: string;
+}
+
 export interface PipelineRun {
   id: number;
   name: string;

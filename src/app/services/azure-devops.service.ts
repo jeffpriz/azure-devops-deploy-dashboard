@@ -21,6 +21,7 @@ import {
 } from 'rxjs/operators';
 import {
   PipelineConfig,
+  PipelineSummary,
   PipelineRun,
   PipelineResourceEntry,
   TimelineRecord,
@@ -35,6 +36,11 @@ interface RunsListResponse {
 
 interface TimelineResponse {
   records: TimelineRecord[];
+}
+
+interface PipelinesListResponse {
+  value: PipelineSummary[];
+  count: number;
 }
 
 const API_VERSION = '7.1';
@@ -77,7 +83,7 @@ export class AzureDevOpsService {
     return url.replace(/\/+$/, '');
   }
 
-  private pipelinesApiBase(config: PipelineConfig): string {
+  private pipelinesApiBase(config: Pick<PipelineConfig, 'organizationUrl' | 'projectName'>): string {
     const org = this.normalizeOrgUrl(config.organizationUrl);
     return `${org}/${encodeURIComponent(config.projectName)}/_apis/pipelines`;
   }
@@ -113,6 +119,32 @@ export class AzureDevOpsService {
           });
           return throwError(() =>
             new Error(this.toErrorMessage(error, 'Failed to load pipeline runs'))
+          );
+        })
+      );
+  }
+
+  listPipelines(
+    config: Pick<PipelineConfig, 'organizationUrl' | 'projectName' | 'pat'>
+  ): Observable<PipelineSummary[]> {
+    const url = this.pipelinesApiBase(config);
+    const params = new HttpParams().set('api-version', API_VERSION);
+    return this.http
+      .get<PipelinesListResponse>(url, {
+        headers: this.buildHeaders(config.pat),
+        params,
+      })
+      .pipe(
+        map((response) =>
+          (response.value ?? []).filter((pipeline) => pipeline.id > 0 && !!pipeline.name)
+        ),
+        catchError((error) => {
+          this.logError('Failed to list pipelines.', error, {
+            organizationUrl: config.organizationUrl,
+            projectName: config.projectName,
+          });
+          return throwError(() =>
+            new Error(this.toErrorMessage(error, 'Failed to load pipelines'))
           );
         })
       );

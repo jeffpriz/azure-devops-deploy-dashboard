@@ -28,6 +28,23 @@
   }
 }
 
+.pipeline-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+
+  select {
+    padding: 0.45rem 0.6rem;
+    border: 1.5px solid var(--border);
+    border-radius: 7px;
+    background: var(--surface-raised);
+    color: var(--text-primary);
+    min-width: 220px;
+  }
+}
+
 .btn-icon {
   display: flex;
   align-items: center;

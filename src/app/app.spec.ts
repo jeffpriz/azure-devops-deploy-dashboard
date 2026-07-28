@@ -1,7 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
+import { By } from '@angular/platform-browser';
 import { App } from './app';
+import { ConfigFormComponent } from './components/config-form/config-form.component';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -63,5 +65,33 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('app-config-form')).not.toBeNull();
     expect(compiled.querySelector('app-dashboard')).toBeNull();
+
+    const configForm = fixture.debugElement.query(By.directive(ConfigFormComponent))
+      .componentInstance as ConfigFormComponent;
+    expect(configForm.initialConfig()).toEqual({
+      organizationUrl: 'https://dev.azure.com/myorg',
+      projectName: 'MyProject',
+      pipelineId: 1,
+      pat: 'test-pat',
+    });
+  });
+
+  it('should update the active pipeline when selected from dashboard', async () => {
+    const fixture = TestBed.createComponent(App);
+    const app = fixture.componentInstance;
+    await fixture.whenStable();
+
+    app.onConfigSubmit({
+      organizationUrl: 'https://dev.azure.com/myorg',
+      projectName: 'MyProject',
+      pipelineId: 1,
+      pat: 'test-pat',
+    });
+
+    app.onPipelineChange(42);
+    fixture.detectChanges();
+
+    expect(app.config()?.pipelineId).toBe(42);
+    expect(app.showingConfig()).toBe(false);
   });
 });

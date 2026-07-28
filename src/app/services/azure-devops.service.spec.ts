@@ -199,4 +199,33 @@ describe('AzureDevOpsService', () => {
       consoleErrorSpy.mockRestore();
     }
   });
+
+  it('should list pipelines for configured organization and project', async () => {
+    const resultPromise = firstValueFrom(
+      service.listPipelines({
+        organizationUrl: config.organizationUrl,
+        projectName: config.projectName,
+        pat: config.pat,
+      })
+    );
+
+    httpMock
+      .expectOne(
+        (req) =>
+          req.url === 'https://dev.azure.com/myorg/MyProject/_apis/pipelines' &&
+          req.params.get('api-version') === '7.1'
+      )
+      .flush({
+        value: [
+          { id: 7, name: 'Deploy API' },
+          { id: 12, name: 'Deploy Web' },
+        ],
+        count: 2,
+      });
+
+    await expect(resultPromise).resolves.toEqual([
+      { id: 7, name: 'Deploy API' },
+      { id: 12, name: 'Deploy Web' },
+    ]);
+  });
 });

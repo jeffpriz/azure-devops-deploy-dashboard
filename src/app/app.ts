@@ -12,12 +12,20 @@ import { DashboardComponent } from './components/dashboard/dashboard.component';
 })
 export class App {
   config = signal<PipelineConfig | null>(null);
+  showingConfig = signal(true);
 
   onConfigSubmit(cfg: PipelineConfig): void {
     this.config.set(cfg);
+    this.showingConfig.set(false);
   }
 
   onReconfigure(): void {
-    this.config.set(null);
+    this.showingConfig.set(true);
+  }
+
+  onPipelineChange(pipelineId: number): void {
+    const current = this.config();
+    if (!current || current.pipelineId === pipelineId) return;
+    this.config.set({ ...current, pipelineId });
   }
 }
