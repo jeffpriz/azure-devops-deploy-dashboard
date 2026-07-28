@@ -51,6 +51,14 @@ export class DashboardComponent implements OnChanges {
         this.loading.set(false);
       },
       error: (err: Error) => {
+        console.error('[DashboardComponent] Failed to load dashboard data.', {
+          error: err,
+          config: {
+            organizationUrl: this.config().organizationUrl,
+            projectName: this.config().projectName,
+            pipelineId: this.config().pipelineId,
+          },
+        });
         this.errorMessage.set(
           err?.message ?? 'An unexpected error occurred while loading the dashboard.'
         );
