@@ -34,7 +34,7 @@
     </svg>
     <h3>Failed to load dashboard</h3>
     <p>{{ errorMessage() }}</p>
-    <p class="hint">Common causes: invalid PAT, incorrect organisation URL or project name, pipeline ID not found, or CORS restrictions. See the README for details.</p>
+    <p class="hint">Common causes: invalid PAT, incorrect organization URL or project name, pipeline ID not found, or CORS restrictions. See the README for details.</p>
     <button class="btn-primary" (click)="refresh()">Try Again</button>
   </div>
 } @else if (stages().length === 0) {
