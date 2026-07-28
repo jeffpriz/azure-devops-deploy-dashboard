@@ -72,6 +72,7 @@ export class DashboardComponent implements OnChanges {
 
   private loadPipelineOptions(): void {
     const cfg = this.config();
+    const currentPipelineOption = this.currentPipelineOption(cfg.pipelineId);
     this.pipelineOptionsLoading.set(true);
     this.adoService
       .listPipelines({
@@ -85,17 +86,19 @@ export class DashboardComponent implements OnChanges {
           this.pipelineOptions.set(
             selectedExists
               ? pipelines
-              : [{ id: cfg.pipelineId, name: `Current Pipeline #${cfg.pipelineId}` }, ...pipelines]
+              : [currentPipelineOption, ...pipelines]
           );
           this.pipelineOptionsLoading.set(false);
         },
         error: () => {
-          this.pipelineOptions.set([
-            { id: cfg.pipelineId, name: `Current Pipeline #${cfg.pipelineId}` },
-          ]);
+          this.pipelineOptions.set([currentPipelineOption]);
           this.pipelineOptionsLoading.set(false);
         },
       });
+  }
+
+  private currentPipelineOption(pipelineId: number): PipelineSummary {
+    return { id: pipelineId, name: `Current Pipeline #${pipelineId}` };
   }
 
   refresh(): void {
@@ -162,7 +165,7 @@ export class DashboardComponent implements OnChanges {
 
   onPipelineSelected(event: Event): void {
     const selectedValue = Number((event.target as HTMLSelectElement).value);
-    if (!Number.isFinite(selectedValue) || selectedValue <= 0) return;
+    if (!Number.isInteger(selectedValue) || selectedValue <= 0) return;
     if (selectedValue === this.config().pipelineId) return;
     this.pipelineChange.emit(selectedValue);
   }
