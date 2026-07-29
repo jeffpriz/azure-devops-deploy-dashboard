@@ -461,8 +461,8 @@ export class AzureDevOpsService {
       this.extractRunIdFromReference(candidate.run?.url) ??
       this.extractRunIdFromReference(candidate.runUri) ??
       this.extractRunIdFromReference(candidate.runURI) ??
-      this.extractRunIdFromReference(candidate.url) ??
       this.extractRunIdFromReference(candidate.webUrl) ??
+      this.extractRunIdFromReference(candidate.url) ??
       this.extractRunIdFromReference(candidate._links?.web?.href);
     // Azure DevOps pipeline resource payloads sometimes expose the consumed run label as `version`.
     const runNameCandidates = [candidate.run?.name, candidate.runName, candidate.version];
