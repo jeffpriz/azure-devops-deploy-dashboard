@@ -74,6 +74,7 @@ describe('AzureDevOpsService', () => {
           pipelines: {
             upstream: {
               pipeline: { id: 7, name: 'Build Pipeline' },
+              runName: '2026.07.01.1',
             },
           },
         },
@@ -110,6 +111,7 @@ describe('AzureDevOpsService', () => {
     expect(result[0].buildRunId).toBeNull();
     expect(result[0].buildUrl).toBeNull();
     expect(result[0].buildPipelineName).toBe('Build Pipeline');
+    expect(result[0].buildNumber).toBe('2026.07.01.1');
   });
 
   it('should resolve build details when pipeline resource uses runID/runName fields', async () => {
