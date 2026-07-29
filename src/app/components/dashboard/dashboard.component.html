@@ -115,7 +115,15 @@
                 </svg>
                 Build #
               </span>
-              <span class="info-value">{{ stage.buildNumber ?? '—' }}</span>
+              <span class="info-value">
+                @if (stage.buildUrl && stage.buildNumber) {
+                  <a class="build-link" [href]="stage.buildUrl" target="_blank" rel="noopener noreferrer">
+                    {{ stage.buildNumber }}
+                  </a>
+                } @else {
+                  {{ stage.buildNumber ?? '—' }}
+                }
+              </span>
             </div>
 
             @if (stage.commitId) {

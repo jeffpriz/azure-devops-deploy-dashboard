@@ -67,6 +67,7 @@ export interface DeploymentStageInfo {
   finishTime: string | null;
   buildPipelineName: string | null;
   buildRunId: number | null;
+  buildUrl: string | null;
   buildNumber: string | null;
   commitId: string | null;
   commitShort: string | null;

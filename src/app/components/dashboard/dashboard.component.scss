@@ -319,6 +319,15 @@
     flex: 1;
   }
 
+  .build-link {
+    color: var(--accent);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
   .commit-hash {
     display: flex;
     align-items: center;
