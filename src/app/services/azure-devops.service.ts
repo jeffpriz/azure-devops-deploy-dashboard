@@ -461,9 +461,9 @@ export class AzureDevOpsService {
       this.extractRunIdFromReference(candidate.run?.url) ??
       this.extractRunIdFromReference(candidate.runUri) ??
       this.extractRunIdFromReference(candidate.runURI) ??
-      this.extractRunIdFromReference(candidate.webUrl) ??
-      this.extractRunIdFromReference(candidate.url) ??
-      this.extractRunIdFromReference(candidate._links?.web?.href);
+      this.extractRunIdFromNonHttpReference(candidate.webUrl) ??
+      this.extractRunIdFromNonHttpReference(candidate.url) ??
+      this.extractRunIdFromNonHttpReference(candidate._links?.web?.href);
     // Azure DevOps pipeline resource payloads sometimes expose the consumed run label as `version`.
     const runNameCandidates = [candidate.run?.name, candidate.runName, candidate.version];
     const runName = runNameCandidates.find(
@@ -507,6 +507,11 @@ export class AzureDevOpsService {
     return null;
   }
 
+  private extractRunIdFromNonHttpReference(value: unknown): number | null {
+    if (this.isHttpUrl(value)) return null;
+    return this.extractRunIdFromReference(value);
+  }
+
   private toPositiveInteger(value: unknown): number | null {
     if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
       return value;
@@ -539,10 +544,13 @@ export class AzureDevOpsService {
         buildId: build.id,
       });
     }
-    const buildUrl = buildId
-      ? this.webPipelineRunUrl(config, buildId)
-      : resource?.webUrl ??
-        (buildRunId ? this.webPipelineRunUrl(config, buildRunId) : null);
+    const buildUrl =
+      resource?.webUrl ??
+      (buildId
+        ? this.webPipelineRunUrl(config, buildId)
+        : buildRunId
+          ? this.webPipelineRunUrl(config, buildRunId)
+          : null);
     return {
       stageName: stage.name,
       stageIdentifier: stage.identifier,
