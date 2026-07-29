@@ -324,4 +324,75 @@ describe('DashboardComponent', () => {
     fixture.detectChanges();
     expect(firstGridCell.getAttribute('tabindex')).toBe('0');
   });
+
+  it('should show only build link plus branch and commit details in table cells', async () => {
+    adoService.loadTabularDashboard.mockReturnValueOnce(
+      of([
+        {
+          pipelineId: 1,
+          pipelineName: 'Deploy API',
+          stages: {
+            build: {
+              stageIdentifier: 'build',
+              stageName: 'Build',
+              stageOrder: 1,
+              runId: 101,
+              runName: 'Run-101',
+              runUrl: 'https://dev.azure.com/myorg/MyProject/_build/results?buildId=101',
+              runState: 'completed',
+              runResult: 'succeeded',
+              startTime: null,
+              finishTime: null,
+              buildPipelineName: 'Build API',
+              buildRunId: 9001,
+              buildUrl: 'https://dev.azure.com/myorg/MyProject/_build/results?buildId=9001',
+              buildNumber: '2026.07.01.1',
+              commitId: 'd34db33fd34db33fd34db33fd34db33fd34db33f',
+              commitShort: 'd34db33f',
+              sourceBranch: 'refs/heads/main',
+              repositoryName: null,
+              requestedFor: null,
+            },
+          },
+        },
+      ] as TabularPipelineData[])
+    );
+
+    const fixture = TestBed.createComponent(DashboardComponent);
+    fixture.componentRef.setInput('config', { ...config, pipelineId: null });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    component.setViewMode('table');
+    fixture.detectChanges();
+
+    const select = fixture.nativeElement.querySelector(
+      '.table-pipeline-picker select'
+    ) as HTMLSelectElement;
+    select.options[0]!.selected = true;
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    const buildLinks = fixture.nativeElement.querySelectorAll(
+      '.runs-table tbody .build-link'
+    ) as NodeListOf<HTMLAnchorElement>;
+    expect(buildLinks.length).toBe(1);
+    expect(buildLinks[0]?.textContent?.trim()).toContain('Build API');
+    expect(buildLinks[0]?.textContent?.trim()).toContain('2026.07.01.1');
+
+    const runLinks = fixture.nativeElement.querySelectorAll('.runs-table tbody .run-link');
+    expect(runLinks.length).toBe(0);
+
+    const statusBadges = fixture.nativeElement.querySelectorAll('.runs-table tbody .status-badge');
+    expect(statusBadges.length).toBe(0);
+
+    const cellText = fixture.nativeElement.querySelector('.runs-table tbody .stage-cell')
+      ?.textContent as string;
+    expect(cellText).toContain('Branch:');
+    expect(cellText).toContain('refs/heads/main');
+    expect(cellText).toContain('Commit:');
+    expect(cellText).toContain('d34db33f');
+  });
 });

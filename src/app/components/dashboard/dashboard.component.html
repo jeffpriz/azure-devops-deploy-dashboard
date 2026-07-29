@@ -355,12 +355,16 @@
                         }
                       </div>
                       <div class="stage-cell-meta">
-                        <span class="status-badge" [class]="tableStageStatusClass(stage)">
-                          {{ tableStageStatusLabel(stage) }}
+                        <span class="meta-label">Branch:</span>
+                        <span class="stage-meta-value">
+                          <code>{{ tableCellBranchLabel(stage) }}</code>
                         </span>
-                        <a class="run-link stage-meta-link" [href]="stage.runUrl" target="_blank" rel="noopener noreferrer">
-                          {{ tableCellRunLabel(stage) }}
-                        </a>
+                      </div>
+                      <div class="stage-cell-meta">
+                        <span class="meta-label">Commit:</span>
+                        <span class="stage-meta-value">
+                          <code [attr.title]="stage.commitId ?? ''">{{ tableCellCommitLabel(stage) }}</code>
+                        </span>
                       </div>
                     </td>
                   } @else {

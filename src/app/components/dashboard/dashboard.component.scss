@@ -536,13 +536,22 @@
 .stage-cell-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.45rem;
-  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.2rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
 }
 
-.stage-meta-link {
-  font-size: 0.84rem;
+.meta-label {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stage-meta-value {
+  code {
+    font-size: 0.82rem;
+    word-break: break-all;
+  }
 }
 
 @media (max-width: 800px) {
