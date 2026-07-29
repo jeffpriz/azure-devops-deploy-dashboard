@@ -70,7 +70,7 @@ describe('DashboardComponent', () => {
     expect(emitSpy).not.toHaveBeenCalled();
   });
 
-  it('should render Build # as a link when a build URL is present', async () => {
+  it('should render Build pipeline and Build # as links when a build URL is present', async () => {
     adoService.loadDashboard.mockReturnValueOnce(
       of([
         {
@@ -102,10 +102,14 @@ describe('DashboardComponent', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    const link = fixture.nativeElement.querySelector('.build-link') as HTMLAnchorElement | null;
-    expect(link).not.toBeNull();
-    expect(link?.textContent?.trim()).toBe('2026.07.03.1');
-    expect(link?.getAttribute('href')).toBe(
+    const links = fixture.nativeElement.querySelectorAll('.build-link') as NodeListOf<HTMLAnchorElement>;
+    expect(links.length).toBe(2);
+    expect(links[0]?.textContent?.trim()).toBe('Build Pipeline');
+    expect(links[0]?.getAttribute('href')).toBe(
+      'https://dev.azure.com/myorg/MyProject/_build/results?buildId=2001'
+    );
+    expect(links[1]?.textContent?.trim()).toBe('2026.07.03.1');
+    expect(links[1]?.getAttribute('href')).toBe(
       'https://dev.azure.com/myorg/MyProject/_build/results?buildId=2001'
     );
   });

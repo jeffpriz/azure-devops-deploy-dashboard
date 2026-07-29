@@ -106,7 +106,15 @@
                 </svg>
                 Build Pipeline
               </span>
-              <span class="info-value">{{ stage.buildPipelineName ?? '—' }}</span>
+              <span class="info-value">
+                @if (stage.buildUrl && stage.buildPipelineName) {
+                  <a class="build-link" [href]="stage.buildUrl" target="_blank" rel="noopener noreferrer">
+                    {{ stage.buildPipelineName }}
+                  </a>
+                } @else {
+                  {{ stage.buildPipelineName ?? '—' }}
+                }
+              </span>
             </div>
             <div class="info-row">
               <span class="info-label">

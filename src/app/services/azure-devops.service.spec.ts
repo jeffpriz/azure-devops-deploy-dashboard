@@ -227,6 +227,110 @@ describe('AzureDevOpsService', () => {
     expect(result[0].buildNumber).toBe('2026.07.03.1');
   });
 
+  it('should resolve build link when pipeline resource only includes a run URI', async () => {
+    const resultPromise = firstValueFrom(service.loadDashboard(config));
+
+    httpMock
+      .expectOne(
+        (req) =>
+          req.url ===
+            'https://dev.azure.com/myorg/MyProject/_apis/pipelines/42/runs' &&
+          req.params.get('api-version') === '7.1' &&
+          req.params.get('$top') === '100'
+      )
+      .flush({
+        value: [
+          {
+            id: 1004,
+            name: 'Deploy-1004',
+            state: 'completed',
+            result: 'succeeded',
+            createdDate: '2026-07-04T00:00:00Z',
+            finishedDate: '2026-07-04T00:10:00Z',
+          },
+        ],
+        count: 1,
+      });
+
+    httpMock
+      .expectOne(
+        (req) =>
+          req.url ===
+            'https://dev.azure.com/myorg/MyProject/_apis/pipelines/42/runs/1004' &&
+          req.params.get('api-version') === '7.1'
+      )
+      .flush({
+        id: 1004,
+        name: 'Deploy-1004',
+        state: 'completed',
+        result: 'succeeded',
+        createdDate: '2026-07-04T00:00:00Z',
+        finishedDate: '2026-07-04T00:10:00Z',
+        resources: {
+          pipelines: {
+            upstream: {
+              pipeline: { id: 7, name: 'Build Pipeline' },
+              runName: '2026.07.04.1',
+              runURI: 'vstfs:///Build/Build/2004',
+            },
+          },
+        },
+      } as any);
+
+    httpMock
+      .expectOne(
+        (req) =>
+          req.url ===
+            'https://dev.azure.com/myorg/MyProject/_apis/build/builds/1004/timeline' &&
+          req.params.get('api-version') === '7.1'
+      )
+      .flush({
+        records: [
+          {
+            id: 's4',
+            parentId: null,
+            type: 'Stage',
+            name: 'Production',
+            identifier: 'production',
+            state: 'completed',
+            result: 'succeeded',
+            startTime: '2026-07-04T00:01:00Z',
+            finishTime: '2026-07-04T00:08:00Z',
+            order: 1,
+          },
+        ],
+      });
+
+    httpMock
+      .expectOne(
+        (req) =>
+          req.url ===
+            'https://dev.azure.com/myorg/MyProject/_apis/build/builds/2004' &&
+          req.params.get('api-version') === '7.1'
+      )
+      .flush({
+        id: 2004,
+        buildNumber: '2026.07.04.1',
+        status: 'completed',
+        result: 'succeeded',
+        startTime: '2026-07-04T00:00:00Z',
+        finishTime: '2026-07-04T00:05:00Z',
+        sourceVersion: 'fedcba9876543210fedcba9876543210fedcba98',
+        sourceBranch: 'refs/heads/main',
+        definition: { id: 7, name: 'Build Pipeline' },
+        repository: { id: 'repo1', name: 'my-repo', type: 'TfsGit' },
+        requestedFor: { displayName: 'Jane Dev', uniqueName: 'jane@example.com' },
+      });
+
+    const result = await resultPromise;
+    expect(result.length).toBe(1);
+    expect(result[0].buildRunId).toBe(2004);
+    expect(result[0].buildUrl).toBe(
+      'https://dev.azure.com/myorg/MyProject/_build/results?buildId=2004'
+    );
+    expect(result[0].buildNumber).toBe('2026.07.04.1');
+  });
+
   it('should return a descriptive error when pipeline runs cannot be loaded', async () => {
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const resultPromise = firstValueFrom(service.loadDashboard(config));

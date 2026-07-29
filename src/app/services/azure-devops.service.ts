@@ -427,9 +427,11 @@ export class AzureDevOpsService {
     if (!resource || typeof resource !== 'object') return null;
     const candidate = resource as {
       pipeline?: { name?: unknown };
-      run?: { id?: unknown; name?: unknown };
+      run?: { id?: unknown; name?: unknown; uri?: unknown; url?: unknown };
       runID?: unknown;
       runId?: unknown;
+      runUri?: unknown;
+      runURI?: unknown;
       runName?: unknown;
       version?: unknown;
       url?: unknown;
@@ -444,7 +446,14 @@ export class AzureDevOpsService {
     const runId =
       this.toPositiveInteger(candidate.run?.id) ??
       this.toPositiveInteger(candidate.runID) ??
-      this.toPositiveInteger(candidate.runId);
+      this.toPositiveInteger(candidate.runId) ??
+      this.extractRunIdFromReference(candidate.run?.uri) ??
+      this.extractRunIdFromReference(candidate.run?.url) ??
+      this.extractRunIdFromReference(candidate.runUri) ??
+      this.extractRunIdFromReference(candidate.runURI) ??
+      this.extractRunIdFromReference(candidate.url) ??
+      this.extractRunIdFromReference(candidate.webUrl) ??
+      this.extractRunIdFromReference(candidate._links?.web?.href);
     // Azure DevOps pipeline resource payloads sometimes expose the consumed run label as `version`.
     const runNameCandidates = [candidate.run?.name, candidate.runName, candidate.version];
     const runName = runNameCandidates.find(
@@ -465,6 +474,27 @@ export class AzureDevOpsService {
       runName,
       webUrl,
     };
+  }
+
+  private extractRunIdFromReference(value: unknown): number | null {
+    if (typeof value !== 'string' || value.length === 0) return null;
+
+    const direct = this.toPositiveInteger(value);
+    if (direct) return direct;
+
+    const patterns = [
+      /(?:[?&]buildId=|\/builds\/|\/runs\/)(\d+)(?:[/?#&]|$)/i,
+      /vstfs:\/\/\/Build\/Build\/(\d+)(?:[/?#]|$)/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = value.match(pattern);
+      if (!match || !match[1]) continue;
+      const parsed = this.toPositiveInteger(match[1]);
+      if (parsed) return parsed;
+    }
+
+    return null;
   }
 
   private toPositiveInteger(value: unknown): number | null {
