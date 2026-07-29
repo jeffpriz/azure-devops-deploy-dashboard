@@ -1,5 +1,6 @@
 import {
   Component,
+  ElementRef,
   input,
   output,
   signal,
@@ -31,6 +32,7 @@ export class DashboardComponent implements OnChanges {
   readonly reconfigure = output<void>();
 
   private adoService = inject(AzureDevOpsService);
+  private hostElement = inject(ElementRef<HTMLElement>);
 
   stages = signal<DeploymentStageInfo[]>([]);
   tableData = signal<TabularPipelineData[]>([]);
@@ -43,6 +45,8 @@ export class DashboardComponent implements OnChanges {
   tableErrorMessage = signal<string | null>(null);
   lastRefreshed = signal<Date | null>(null);
   viewMode = signal<'cards' | 'table'>('cards');
+  tableFocusedRowIndex = signal(0);
+  tableFocusedColumnIndex = signal(0);
 
   readonly title = computed(() => {
     const cfg = this.config();
@@ -59,6 +63,8 @@ export class DashboardComponent implements OnChanges {
     const data = this.tableData();
     return data.length === 0 || data.every((pipeline) => Object.keys(pipeline.stages).length === 0);
   });
+  readonly tableAriaColumnCount = computed(() => this.tableStageColumns().length + 1);
+  readonly tableAriaRowCount = computed(() => this.tableData().length + 1);
   readonly tableStageColumns = computed(() => {
     const columns = new Map<string, { name: string; order: number }>();
     for (const pipeline of this.tableData()) {
@@ -198,6 +204,7 @@ export class DashboardComponent implements OnChanges {
     const selectedPipelineIds = this.tableSelectedPipelineIds();
     if (selectedPipelineIds.length === 0) {
       this.tableData.set([]);
+      this.resetTableGridFocus();
       this.tableLoading.set(false);
       this.tableErrorMessage.set(null);
       return;
@@ -217,6 +224,7 @@ export class DashboardComponent implements OnChanges {
               optionNames.get(pipelineData.pipelineId) ?? pipelineData.pipelineName,
           }))
         );
+        this.resetTableGridFocus();
         this.lastRefreshed.set(new Date());
         this.tableLoading.set(false);
       },
@@ -288,6 +296,9 @@ export class DashboardComponent implements OnChanges {
 
   setViewMode(mode: 'cards' | 'table'): void {
     this.viewMode.set(mode);
+    if (mode === 'table') {
+      this.resetTableGridFocus();
+    }
   }
 
   onTablePipelinesSelected(event: Event): void {
@@ -345,6 +356,64 @@ export class DashboardComponent implements OnChanges {
       default:
         return stage.runResult ?? stage.runState ?? 'Unknown';
     }
+  }
+
+  tableCellTabIndex(rowIndex: number, columnIndex: number): number {
+    return this.tableFocusedRowIndex() === rowIndex &&
+      this.tableFocusedColumnIndex() === columnIndex
+      ? 0
+      : -1;
+  }
+
+  onTableCellFocus(rowIndex: number, columnIndex: number): void {
+    this.tableFocusedRowIndex.set(rowIndex);
+    this.tableFocusedColumnIndex.set(columnIndex);
+  }
+
+  onTableCellKeydown(event: KeyboardEvent, rowIndex: number, columnIndex: number): void {
+    const rowMax = Math.max(this.tableData().length - 1, 0);
+    const columnMax = Math.max(this.tableAriaColumnCount() - 1, 0);
+
+    let nextRow = rowIndex;
+    let nextColumn = columnIndex;
+
+    switch (event.key) {
+      case 'ArrowUp':
+        nextRow = Math.max(0, rowIndex - 1);
+        break;
+      case 'ArrowDown':
+        nextRow = Math.min(rowMax, rowIndex + 1);
+        break;
+      case 'ArrowLeft':
+        nextColumn = Math.max(0, columnIndex - 1);
+        break;
+      case 'ArrowRight':
+        nextColumn = Math.min(columnMax, columnIndex + 1);
+        break;
+      case 'Home':
+        nextColumn = 0;
+        break;
+      case 'End':
+        nextColumn = columnMax;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    this.focusTableCell(nextRow, nextColumn);
+  }
+
+  private focusTableCell(rowIndex: number, columnIndex: number): void {
+    this.tableFocusedRowIndex.set(rowIndex);
+    this.tableFocusedColumnIndex.set(columnIndex);
+    const selector = `[data-grid-row="${rowIndex}"][data-grid-col="${columnIndex}"]`;
+    this.hostElement.nativeElement.querySelector<HTMLElement>(selector)?.focus();
+  }
+
+  private resetTableGridFocus(): void {
+    this.tableFocusedRowIndex.set(0);
+    this.tableFocusedColumnIndex.set(0);
   }
 
 }

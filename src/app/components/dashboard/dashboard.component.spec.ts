@@ -257,4 +257,71 @@ describe('DashboardComponent', () => {
     const rows = fixture.nativeElement.querySelectorAll('.runs-table tbody tr');
     expect(rows.length).toBe(2);
   });
+
+  it('should render table view as an aria grid with keyboard-focusable cells', async () => {
+    adoService.loadTabularDashboard.mockReturnValueOnce(
+      of([
+        {
+          pipelineId: 1,
+          pipelineName: 'Deploy API',
+          stages: {
+            build: {
+              stageIdentifier: 'build',
+              stageName: 'Build',
+              stageOrder: 1,
+              runId: 101,
+              runName: 'Run-101',
+              runUrl: 'https://dev.azure.com/myorg/MyProject/_build/results?buildId=101',
+              runState: 'completed',
+              runResult: 'succeeded',
+              startTime: null,
+              finishTime: null,
+              buildPipelineName: 'Build API',
+              buildRunId: 9001,
+              buildUrl: 'https://dev.azure.com/myorg/MyProject/_build/results?buildId=9001',
+              buildNumber: '2026.07.01.1',
+              commitId: null,
+              commitShort: null,
+              sourceBranch: null,
+              repositoryName: null,
+              requestedFor: null,
+            },
+          },
+        },
+      ] as TabularPipelineData[])
+    );
+
+    const fixture = TestBed.createComponent(DashboardComponent);
+    fixture.componentRef.setInput('config', { ...config, pipelineId: null });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    component.setViewMode('table');
+    fixture.detectChanges();
+
+    const select = fixture.nativeElement.querySelector(
+      '.table-pipeline-picker select'
+    ) as HTMLSelectElement;
+    select.options[0]!.selected = true;
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    const grid = fixture.nativeElement.querySelector('.runs-table');
+    expect(grid?.getAttribute('role')).toBe('grid');
+
+    const firstRowHeader = fixture.nativeElement.querySelector(
+      '.runs-table tbody [role="rowheader"]'
+    ) as HTMLElement;
+    const firstGridCell = fixture.nativeElement.querySelector(
+      '.runs-table tbody [role="gridcell"]'
+    ) as HTMLElement;
+    expect(firstRowHeader.getAttribute('tabindex')).toBe('0');
+    expect(firstGridCell.getAttribute('tabindex')).toBe('-1');
+
+    firstRowHeader.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    fixture.detectChanges();
+    expect(firstGridCell.getAttribute('tabindex')).toBe('0');
+  });
 });

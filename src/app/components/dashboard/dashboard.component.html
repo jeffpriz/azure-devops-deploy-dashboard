@@ -277,28 +277,74 @@
     </div>
   } @else {
     <div class="table-wrap">
-      <table class="runs-table improved-table">
-        <thead>
-          <tr>
-            <th>Pipeline</th>
+      <table
+        class="runs-table improved-table"
+        role="grid"
+        aria-label="Pipeline deployment stages"
+        [attr.aria-colcount]="tableAriaColumnCount()"
+        [attr.aria-rowcount]="tableAriaRowCount()"
+      >
+        <thead role="rowgroup">
+          <tr role="row">
+            <th role="columnheader" scope="col">Pipeline</th>
             @for (column of tableStageColumns(); track column.key) {
-              <th>{{ column.name }}</th>
+              <th role="columnheader" scope="col">{{ column.name }}</th>
             }
           </tr>
         </thead>
-        <tbody>
-          @for (pipeline of tableData(); track pipeline.pipelineId) {
+        <tbody role="rowgroup">
+          @for (pipeline of tableData(); track pipeline.pipelineId; let rowIndex = $index) {
             @if (tableStageColumns().length === 0) {
-              <tr>
-                <td class="pipeline-cell">{{ pipeline.pipelineName }} (#{{ pipeline.pipelineId }})</td>
-                <td [attr.colspan]="tableStageColumns().length" class="blank-cell">No deployment stage data found</td>
+              <tr role="row">
+                <td
+                  class="pipeline-cell"
+                  role="rowheader"
+                  [attr.tabindex]="tableCellTabIndex(rowIndex, 0)"
+                  [attr.aria-rowindex]="rowIndex + 2"
+                  aria-colindex="1"
+                  [attr.data-grid-row]="rowIndex"
+                  [attr.data-grid-col]="0"
+                  (focus)="onTableCellFocus(rowIndex, 0)"
+                  (keydown)="onTableCellKeydown($event, rowIndex, 0)"
+                >
+                  {{ pipeline.pipelineName }} (#{{ pipeline.pipelineId }})
+                </td>
+                <td
+                  colspan="1"
+                  class="blank-cell"
+                  role="gridcell"
+                >
+                  No deployment stage data found
+                </td>
               </tr>
             } @else {
-              <tr>
-                <td class="pipeline-cell">{{ pipeline.pipelineName }} (#{{ pipeline.pipelineId }})</td>
-                @for (column of tableStageColumns(); track column.key) {
+              <tr role="row">
+                <td
+                  class="pipeline-cell"
+                  role="rowheader"
+                  [attr.tabindex]="tableCellTabIndex(rowIndex, 0)"
+                  [attr.aria-rowindex]="rowIndex + 2"
+                  aria-colindex="1"
+                  [attr.data-grid-row]="rowIndex"
+                  data-grid-col="0"
+                  (focus)="onTableCellFocus(rowIndex, 0)"
+                  (keydown)="onTableCellKeydown($event, rowIndex, 0)"
+                >
+                  {{ pipeline.pipelineName }} (#{{ pipeline.pipelineId }})
+                </td>
+                @for (column of tableStageColumns(); track column.key; let columnIndex = $index) {
                   @if (pipeline.stages[column.key]; as stage) {
-                    <td class="stage-cell">
+                    <td
+                      class="stage-cell"
+                      role="gridcell"
+                      [attr.tabindex]="tableCellTabIndex(rowIndex, columnIndex + 1)"
+                      [attr.aria-rowindex]="rowIndex + 2"
+                      [attr.aria-colindex]="columnIndex + 2"
+                      [attr.data-grid-row]="rowIndex"
+                      [attr.data-grid-col]="columnIndex + 1"
+                      (focus)="onTableCellFocus(rowIndex, columnIndex + 1)"
+                      (keydown)="onTableCellKeydown($event, rowIndex, columnIndex + 1)"
+                    >
                       <div class="stage-cell-main">
                         @if (tableCellBuildUrl(stage)) {
                           <a class="build-link" [href]="tableCellBuildUrl(stage)!" target="_blank" rel="noopener noreferrer">
@@ -318,7 +364,19 @@
                       </div>
                     </td>
                   } @else {
-                    <td class="blank-cell">—</td>
+                    <td
+                      class="blank-cell"
+                      role="gridcell"
+                      [attr.tabindex]="tableCellTabIndex(rowIndex, columnIndex + 1)"
+                      [attr.aria-rowindex]="rowIndex + 2"
+                      [attr.aria-colindex]="columnIndex + 2"
+                      [attr.data-grid-row]="rowIndex"
+                      [attr.data-grid-col]="columnIndex + 1"
+                      (focus)="onTableCellFocus(rowIndex, columnIndex + 1)"
+                      (keydown)="onTableCellKeydown($event, rowIndex, columnIndex + 1)"
+                    >
+                      —
+                    </td>
                   }
                 }
               </tr>
