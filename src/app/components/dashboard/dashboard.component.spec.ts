@@ -167,72 +167,62 @@ describe('DashboardComponent', () => {
     );
   });
 
-  it('should render blank cells when a selected pipeline run does not include a stage column', async () => {
+  it('should render one row per selected pipeline with blank cells for missing stage columns', async () => {
     adoService.loadTabularDashboard.mockReturnValueOnce(
       of([
         {
           pipelineId: 1,
           pipelineName: 'Deploy API',
-          runs: [
-            {
+          stages: {
+            build: {
+              stageIdentifier: 'build',
+              stageName: 'Build',
+              stageOrder: 1,
               runId: 101,
               runName: 'Run-101',
               runUrl: 'https://dev.azure.com/myorg/MyProject/_build/results?buildId=101',
-              createdDate: '2026-07-01T00:00:00Z',
-              finishedDate: '2026-07-01T00:10:00Z',
-              stages: {
-                build: {
-                  stageIdentifier: 'build',
-                  stageName: 'Build',
-                  runState: 'completed',
-                  runResult: 'succeeded',
-                  startTime: null,
-                  finishTime: null,
-                  buildPipelineName: 'Build API',
-                  buildRunId: 9001,
-                  buildUrl: 'https://dev.azure.com/myorg/MyProject/_build/results?buildId=9001',
-                  buildNumber: '2026.07.01.1',
-                  commitId: null,
-                  commitShort: null,
-                  sourceBranch: null,
-                  repositoryName: null,
-                  requestedFor: null,
-                },
-              },
+              runState: 'completed',
+              runResult: 'succeeded',
+              startTime: null,
+              finishTime: null,
+              buildPipelineName: 'Build API',
+              buildRunId: 9001,
+              buildUrl: 'https://dev.azure.com/myorg/MyProject/_build/results?buildId=9001',
+              buildNumber: '2026.07.01.1',
+              commitId: null,
+              commitShort: null,
+              sourceBranch: null,
+              repositoryName: null,
+              requestedFor: null,
             },
-          ],
+          },
         },
         {
           pipelineId: 2,
           pipelineName: 'Deploy Web',
-          runs: [
-            {
+          stages: {
+            deploy: {
+              stageIdentifier: 'deploy',
+              stageName: 'Deploy',
+              stageOrder: 2,
               runId: 202,
               runName: 'Run-202',
               runUrl: 'https://dev.azure.com/myorg/MyProject/_build/results?buildId=202',
-              createdDate: '2026-07-01T00:00:00Z',
-              finishedDate: '2026-07-01T00:10:00Z',
-              stages: {
-                deploy: {
-                  stageIdentifier: 'deploy',
-                  stageName: 'Deploy',
-                  runState: 'completed',
-                  runResult: 'succeeded',
-                  startTime: null,
-                  finishTime: null,
-                  buildPipelineName: 'Build Web',
-                  buildRunId: 9002,
-                  buildUrl: 'https://dev.azure.com/myorg/MyProject/_build/results?buildId=9002',
-                  buildNumber: '2026.07.01.2',
-                  commitId: null,
-                  commitShort: null,
-                  sourceBranch: null,
-                  repositoryName: null,
-                  requestedFor: null,
-                },
-              },
+              runState: 'completed',
+              runResult: 'succeeded',
+              startTime: null,
+              finishTime: null,
+              buildPipelineName: 'Build Web',
+              buildRunId: 9002,
+              buildUrl: 'https://dev.azure.com/myorg/MyProject/_build/results?buildId=9002',
+              buildNumber: '2026.07.01.2',
+              commitId: null,
+              commitShort: null,
+              sourceBranch: null,
+              repositoryName: null,
+              requestedFor: null,
             },
-          ],
+          },
         },
       ] as TabularPipelineData[])
     );
@@ -263,5 +253,8 @@ describe('DashboardComponent', () => {
 
     const blankCells = fixture.nativeElement.querySelectorAll('.runs-table .blank-cell');
     expect(blankCells.length).toBeGreaterThan(0);
+
+    const rows = fixture.nativeElement.querySelectorAll('.runs-table tbody tr');
+    expect(rows.length).toBe(2);
   });
 });

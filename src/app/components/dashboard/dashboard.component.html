@@ -269,10 +269,10 @@
       <p>{{ tableErrorMessage() }}</p>
       <button class="btn-primary" (click)="refreshTable()">Try Again</button>
     </div>
-  } @else if (hasNoTableRuns()) {
+  } @else if (hasNoTableData()) {
     <div class="empty-state">
-      <h3>No pipeline runs found</h3>
-      <p>No runs were found for the selected pipelines.</p>
+      <h3>No deployment stage data found</h3>
+      <p>No deployment stage data was found for the selected pipelines.</p>
     </div>
   } @else {
     <div class="table-wrap">
@@ -280,7 +280,6 @@
         <thead>
           <tr>
             <th>Pipeline</th>
-            <th>Run</th>
             @for (column of tableStageColumns(); track column.key) {
               <th>{{ column.name }}</th>
             }
@@ -288,38 +287,34 @@
         </thead>
         <tbody>
           @for (pipeline of tableData(); track pipeline.pipelineId) {
-            @if (pipeline.runs.length === 0) {
+            @if (tableStageColumns().length === 0) {
               <tr>
                 <td class="pipeline-cell">{{ pipeline.pipelineName }} (#{{ pipeline.pipelineId }})</td>
-                <td [attr.colspan]="1 + tableStageColumns().length" class="blank-cell">No runs found</td>
+                <td [attr.colspan]="tableStageColumns().length" class="blank-cell">No deployment stage data found</td>
               </tr>
             } @else {
-              @for (run of pipeline.runs; track run.runId) {
-                <tr>
-                  <td class="pipeline-cell">{{ pipeline.pipelineName }} (#{{ pipeline.pipelineId }})</td>
-                  <td>
-                    <a class="run-link" [href]="run.runUrl" target="_blank" rel="noopener noreferrer">
-                      {{ run.runName }}
-                    </a>
-                  </td>
-                  @for (column of tableStageColumns(); track column.key) {
-                    @if (run.stages[column.key]; as stage) {
-                      <td>
-                        @if (tableCellBuildUrl(stage)) {
-                          <a class="build-link" [href]="tableCellBuildUrl(stage)!" target="_blank" rel="noopener noreferrer">
-                            {{ tableCellSummary(stage) }}
-                          </a>
-                        } @else {
+              <tr>
+                <td class="pipeline-cell">{{ pipeline.pipelineName }} (#{{ pipeline.pipelineId }})</td>
+                @for (column of tableStageColumns(); track column.key) {
+                  @if (pipeline.stages[column.key]; as stage) {
+                    <td>
+                      @if (tableCellBuildUrl(stage)) {
+                        <a class="build-link" [href]="tableCellBuildUrl(stage)!" target="_blank" rel="noopener noreferrer">
                           {{ tableCellSummary(stage) }}
-                        }
-                        <div class="stage-meta">{{ stage.runResult ?? stage.runState }}</div>
-                      </td>
-                    } @else {
-                      <td class="blank-cell">—</td>
-                    }
+                        </a>
+                      } @else {
+                        {{ tableCellSummary(stage) }}
+                      }
+                      <div class="stage-meta">{{ stage.runResult ?? stage.runState }}</div>
+                      <a class="run-link stage-meta-link" [href]="stage.runUrl" target="_blank" rel="noopener noreferrer">
+                        {{ tableCellRunLabel(stage) }}
+                      </a>
+                    </td>
+                  } @else {
+                    <td class="blank-cell">—</td>
                   }
-                </tr>
-              }
+                }
+              </tr>
             }
           }
         </tbody>

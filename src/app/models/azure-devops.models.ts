@@ -80,6 +80,10 @@ export interface DeploymentStageInfo {
 export interface TabularStageCellInfo {
   stageIdentifier: string;
   stageName: string;
+  stageOrder: number;
+  runId: number;
+  runName: string;
+  runUrl: string;
   runState: string;
   runResult: string | null;
   startTime: string | null;
@@ -95,17 +99,8 @@ export interface TabularStageCellInfo {
   requestedFor: string | null;
 }
 
-export interface TabularPipelineRunRow {
-  runId: number;
-  runName: string;
-  runUrl: string;
-  createdDate: string;
-  finishedDate: string | null;
-  stages: Record<string, TabularStageCellInfo>;
-}
-
 export interface TabularPipelineData {
   pipelineId: number;
   pipelineName: string;
-  runs: TabularPipelineRunRow[];
+  stages: Record<string, TabularStageCellInfo>;
 }

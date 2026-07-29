@@ -55,22 +55,26 @@ export class DashboardComponent implements OnChanges {
   readonly hasSelectedTablePipelines = computed(
     () => this.tableSelectedPipelineIds().length > 0
   );
-  readonly hasNoTableRuns = computed(() => {
+  readonly hasNoTableData = computed(() => {
     const data = this.tableData();
-    return data.length === 0 || data.every((pipeline) => pipeline.runs.length === 0);
+    return data.length === 0 || data.every((pipeline) => Object.keys(pipeline.stages).length === 0);
   });
   readonly tableStageColumns = computed(() => {
-    const columns = new Map<string, string>();
+    const columns = new Map<string, { name: string; order: number }>();
     for (const pipeline of this.tableData()) {
-      for (const run of pipeline.runs) {
-        for (const [stageKey, stage] of Object.entries(run.stages)) {
-          if (!columns.has(stageKey)) {
-            columns.set(stageKey, stage.stageName || stageKey);
-          }
+      for (const [stageKey, stage] of Object.entries(pipeline.stages)) {
+        const existing = columns.get(stageKey);
+        if (!existing || stage.stageOrder < existing.order) {
+          columns.set(stageKey, {
+            name: stage.stageName || stageKey,
+            order: stage.stageOrder,
+          });
         }
       }
     }
-    return Array.from(columns.entries()).map(([key, name]) => ({ key, name }));
+    return Array.from(columns.entries())
+      .sort(([, a], [, b]) => a.order - b.order)
+      .map(([key, value]) => ({ key, name: value.name }));
   });
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -305,6 +309,10 @@ export class DashboardComponent implements OnChanges {
 
   tableCellBuildUrl(stage: TabularStageCellInfo): string | null {
     return stage.buildUrl;
+  }
+
+  tableCellRunLabel(stage: TabularStageCellInfo): string {
+    return stage.runName ? `Run ${stage.runName}` : `Run #${stage.runId}`;
   }
 
 }
