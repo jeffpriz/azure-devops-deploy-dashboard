@@ -58,6 +58,7 @@ export interface BuildInfo {
 export interface DeploymentStageInfo {
   stageName: string;
   stageIdentifier: string;
+  stageOrder: number;
   runId: number;
   runName: string;
   runState: string;
