@@ -163,10 +163,25 @@ export class DashboardComponent implements OnChanges {
     navigator.clipboard.writeText(text).catch(() => undefined);
   }
 
+  buildResultUrl(stage: DeploymentStageInfo): string | null {
+    if (stage.buildUrl) {
+      return stage.buildUrl;
+    }
+
+    if (!stage.buildRunId) {
+      return null;
+    }
+
+    const cfg = this.config();
+    const org = cfg.organizationUrl.replace(/\/+$/, '');
+    return `${org}/${encodeURIComponent(cfg.projectName)}/_build/results?buildId=${stage.buildRunId}`;
+  }
+
   onPipelineSelected(event: Event): void {
     const selectedValue = Number((event.target as HTMLSelectElement).value);
     if (!Number.isInteger(selectedValue) || selectedValue <= 0) return;
     if (selectedValue === this.config().pipelineId) return;
     this.pipelineChange.emit(selectedValue);
   }
+
 }

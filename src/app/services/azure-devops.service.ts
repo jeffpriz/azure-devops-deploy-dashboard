@@ -23,7 +23,6 @@ import {
   PipelineConfig,
   PipelineSummary,
   PipelineRun,
-  PipelineResourceEntry,
   TimelineRecord,
   BuildInfo,
   DeploymentStageInfo,
@@ -41,6 +40,19 @@ interface TimelineResponse {
 interface PipelinesListResponse {
   value: PipelineSummary[];
   count: number;
+}
+
+interface BuildsListResponse {
+  value: BuildInfo[];
+  count: number;
+}
+
+interface ResolvedPipelineResource {
+  pipelineId: number | null;
+  pipelineName: string | null;
+  runId: number | null;
+  runName: string | null;
+  webUrl: string | null;
 }
 
 const API_VERSION = '7.1';
@@ -224,6 +236,60 @@ export class AzureDevOpsService {
       );
   }
 
+  /** Fetch build information by build number (and optionally definition ID). */
+  private getBuildByNumber(
+    config: PipelineConfig,
+    buildNumber: string,
+    definitionId: number | null
+  ): Observable<BuildInfo | null> {
+    const url = this.buildsApiBase(config);
+    const buildNumberQuery = buildNumber.trim();
+
+    const request = (definitionFilter: number | null): Observable<BuildInfo | null> => {
+      let params = new HttpParams()
+        .set('api-version', API_VERSION)
+        .set('buildNumber', buildNumberQuery)
+        .set('$top', '1')
+        .set('queryOrder', 'finishTimeDescending');
+
+      if (definitionFilter) {
+        params = params.set('definitions', String(definitionFilter));
+      }
+
+      return this.http
+        .get<BuildsListResponse>(url, {
+          headers: this.buildHeaders(config.pat),
+          params,
+        })
+        .pipe(
+          map((response) => {
+            const builds = response.value ?? [];
+            return builds[0] ?? null;
+          })
+        );
+    };
+
+    return request(definitionId).pipe(
+      switchMap((build) => {
+        if (build || !definitionId) {
+          return of(build);
+        }
+        // Retry without definition filter for orgs where resource pipeline IDs do not map 1:1.
+        return request(null);
+      }),
+      catchError((error) => {
+        this.logError('Failed to fetch build details by build number.', error, {
+          buildNumber: buildNumberQuery,
+          definitionId,
+          organizationUrl: config.organizationUrl,
+          projectName: config.projectName,
+          pipelineId: config.pipelineId,
+        });
+        return of(null);
+      })
+    );
+  }
+
   /**
    * Main entry-point: loads the dashboard data.
    *
@@ -350,6 +416,7 @@ export class AzureDevOpsService {
 
     // Collect unique build IDs to avoid duplicate fetches.
     const buildCache = new Map<number, Observable<BuildInfo | null>>();
+    const buildByNumberCache = new Map<string, Observable<BuildInfo | null>>();
 
     const getOrFetchBuild = (buildId: number): Observable<BuildInfo | null> => {
       if (!buildCache.has(buildId)) {
@@ -358,18 +425,40 @@ export class AzureDevOpsService {
       return buildCache.get(buildId)!;
     };
 
+    const getOrFetchBuildByNumber = (
+      buildNumber: string,
+      definitionId: number | null
+    ): Observable<BuildInfo | null> => {
+      const key = `${definitionId ?? 'none'}:${buildNumber}`;
+      if (!buildByNumberCache.has(key)) {
+        buildByNumberCache.set(
+          key,
+          this.getBuildByNumber(config, buildNumber, definitionId)
+        );
+      }
+      return buildByNumberCache.get(key)!;
+    };
+
     const entries = Array.from(stageMap.entries());
 
     const infos$ = entries.map(([, { stage, detail, runUrl }]) => {
       const firstPipelineResource = this.extractFirstPipelineResource(detail);
 
       const build$: Observable<BuildInfo | null> = firstPipelineResource
-        ? getOrFetchBuild(firstPipelineResource.run.id)
+        ? firstPipelineResource.runId
+          ? getOrFetchBuild(firstPipelineResource.runId)
+          : firstPipelineResource.runName
+            ? getOrFetchBuildByNumber(
+              firstPipelineResource.runName,
+              firstPipelineResource.pipelineId
+            )
+          : of(null)
         : of(null);
 
       return build$.pipe(
         map((build) =>
           this.toDeploymentStageInfo(
+            config,
             stage,
             detail,
             runUrl,
@@ -393,15 +482,16 @@ export class AzureDevOpsService {
 
   private extractFirstPipelineResource(
     run: PipelineRun
-  ): PipelineResourceEntry | null {
+  ): ResolvedPipelineResource | null {
     const pipelines = run.resources?.pipelines;
     if (!pipelines) return null;
     const resources = Object.values(pipelines);
     if (resources.length === 0) return null;
 
     for (const resource of resources) {
-      if (this.isValidPipelineResource(resource)) {
-        return resource;
+      const resolved = this.resolvePipelineResource(resource);
+      if (resolved) {
+        return resolved;
       }
     }
 
@@ -413,24 +503,138 @@ export class AzureDevOpsService {
     return null;
   }
 
-  private isValidPipelineResource(resource: unknown): resource is PipelineResourceEntry {
-    if (!resource || typeof resource !== 'object') return false;
-    const candidate = resource as Partial<PipelineResourceEntry>;
-    return (
-      typeof candidate.run?.id === 'number' &&
-      candidate.run.id > 0 &&
-      typeof candidate.run.name === 'string'
-    );
+  private isHttpUrl(value: unknown): value is string {
+    if (typeof value !== 'string' || value.length === 0) return false;
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
+  private resolvePipelineResource(resource: unknown): ResolvedPipelineResource | null {
+    if (!resource || typeof resource !== 'object') return null;
+    const candidate = resource as {
+      pipeline?: { id?: unknown; name?: unknown };
+      run?: { id?: unknown; name?: unknown; uri?: unknown; url?: unknown };
+      runID?: unknown;
+      runId?: unknown;
+      runUri?: unknown;
+      runURI?: unknown;
+      runName?: unknown;
+      version?: unknown;
+      url?: unknown;
+      webUrl?: unknown;
+      _links?: { web?: { href?: unknown } };
+    };
+
+    const pipelineName =
+      typeof candidate.pipeline?.name === 'string' && candidate.pipeline.name.length > 0
+        ? candidate.pipeline.name
+        : null;
+    const pipelineId = this.toPositiveInteger(candidate.pipeline?.id);
+    const runId =
+      this.toPositiveInteger(candidate.run?.id) ??
+      this.toPositiveInteger(candidate.runID) ??
+      this.toPositiveInteger(candidate.runId) ??
+      this.extractRunIdFromReference(candidate.run?.uri) ??
+      this.extractRunIdFromReference(candidate.run?.url) ??
+      this.extractRunIdFromReference(candidate.runUri) ??
+      this.extractRunIdFromReference(candidate.runURI) ??
+      // Some payloads only expose vstfs references at these top-level fields.
+      // We only extract IDs from non-http values to avoid mismatching web links.
+      this.extractRunIdFromNonHttpReference(candidate.webUrl) ??
+      this.extractRunIdFromNonHttpReference(candidate.url) ??
+      this.extractRunIdFromNonHttpReference(candidate._links?.web?.href);
+    // Azure DevOps pipeline resource payloads sometimes expose the consumed run label as `version`.
+    const runNameCandidates = [candidate.run?.name, candidate.runName, candidate.version];
+    const runName = runNameCandidates.find(
+      (value): value is string => typeof value === 'string' && value.length > 0
+    ) ?? null;
+    const webUrlCandidates = [candidate.webUrl, candidate.url, candidate._links?.web?.href];
+    const webUrl = webUrlCandidates.find((value): value is string =>
+      this.isHttpUrl(value)
+    ) ?? null;
+
+    if (!pipelineName && !runId && !runName && !webUrl) {
+      return null;
+    }
+
+    return {
+      pipelineId,
+      pipelineName,
+      runId,
+      runName,
+      webUrl,
+    };
+  }
+
+  private extractRunIdFromReference(value: unknown): number | null {
+    if (typeof value !== 'string' || value.length === 0) return null;
+
+    const direct = this.toPositiveInteger(value);
+    if (direct) return direct;
+
+    const patterns = [
+      /(?:[?&]buildId=|\/builds\/|\/runs\/)(\d+)(?:[/?#&]|$)/i,
+      /vstfs:\/\/\/Build\/Build\/(\d+)(?:[/?#]|$)/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = value.match(pattern);
+      if (!match || !match[1]) continue;
+      const parsed = this.toPositiveInteger(match[1]);
+      if (parsed) return parsed;
+    }
+
+    return null;
+  }
+
+  private extractRunIdFromNonHttpReference(value: unknown): number | null {
+    if (this.isHttpUrl(value)) return null;
+    return this.extractRunIdFromReference(value);
+  }
+
+  private toPositiveInteger(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+      return value;
+    }
+    if (
+      typeof value === 'string' &&
+      value.length > 0 &&
+      /^\d+$/.test(value)
+    ) {
+      const parsed = Number(value);
+      return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+    }
+    return null;
   }
 
   private toDeploymentStageInfo(
+    config: PipelineConfig,
     stage: TimelineRecord,
     detail: PipelineRun,
     runUrl: string,
-    resource: PipelineResourceEntry | null,
+    resource: ResolvedPipelineResource | null,
     build: BuildInfo | null
   ): DeploymentStageInfo {
+    const buildId = this.toPositiveInteger(build?.id);
+    const buildRunId = resource?.runId ?? buildId ?? null;
     const commitId = build?.sourceVersion ?? null;
+    if (build && !buildId) {
+      this.logInfo('Build details were returned without a valid numeric ID.', {
+        runId: detail.id,
+        buildId: build.id,
+      });
+    }
+    const buildUrl =
+      resource?.webUrl ??
+      (buildId
+        ? this.webPipelineRunUrl(config, buildId)
+        : buildRunId
+          ? this.webPipelineRunUrl(config, buildRunId)
+          : null);
     return {
       stageName: stage.name,
       stageIdentifier: stage.identifier,
@@ -441,9 +645,10 @@ export class AzureDevOpsService {
       runUrl,
       startTime: stage.startTime,
       finishTime: stage.finishTime,
-      buildPipelineName: resource?.pipeline?.name ?? null,
-      buildRunId: resource?.run?.id ?? null,
-      buildNumber: build?.buildNumber ?? resource?.run?.name ?? null,
+      buildPipelineName: resource?.pipelineName ?? null,
+      buildRunId,
+      buildUrl,
+      buildNumber: build?.buildNumber ?? resource?.runName ?? null,
       commitId: commitId,
       commitShort: commitId ? commitId.substring(0, 8) : null,
       sourceBranch: build?.sourceBranch

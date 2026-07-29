@@ -2,7 +2,10 @@ import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { DashboardComponent } from './dashboard.component';
 import { AzureDevOpsService } from '../../services/azure-devops.service';
-import { PipelineConfig } from '../../models/azure-devops.models';
+import {
+  DeploymentStageInfo,
+  PipelineConfig,
+} from '../../models/azure-devops.models';
 
 describe('DashboardComponent', () => {
   const config: PipelineConfig = {
@@ -13,7 +16,7 @@ describe('DashboardComponent', () => {
   };
 
   const adoService = {
-    loadDashboard: vi.fn(() => of([])),
+    loadDashboard: vi.fn(() => of([] as DeploymentStageInfo[])),
     listPipelines: vi.fn(() =>
       of([
         { id: 1, name: 'Deploy API' },
@@ -65,5 +68,49 @@ describe('DashboardComponent', () => {
     component.onPipelineSelected({ target: { value: '1' } } as unknown as Event);
 
     expect(emitSpy).not.toHaveBeenCalled();
+  });
+
+  it('should render Build pipeline and Build # as links when a build URL is present', async () => {
+    adoService.loadDashboard.mockReturnValueOnce(
+      of([
+        {
+          stageName: 'Production',
+          stageIdentifier: 'production',
+          runId: 1001,
+          runName: 'Deploy-1001',
+          runState: 'completed',
+          runResult: 'succeeded',
+          runUrl: 'https://dev.azure.com/myorg/MyProject/_build/results?buildId=1001',
+          startTime: '2026-07-01T00:01:00Z',
+          finishTime: '2026-07-01T00:08:00Z',
+          buildPipelineName: 'Build Pipeline',
+          buildRunId: 2001,
+          buildUrl: 'https://dev.azure.com/myorg/MyProject/_build/results?buildId=2001',
+          buildNumber: '2026.07.03.1',
+          commitId: null,
+          commitShort: null,
+          sourceBranch: null,
+          repositoryName: null,
+          requestedFor: null,
+        },
+      ])
+    );
+
+    const fixture = TestBed.createComponent(DashboardComponent);
+    fixture.componentRef.setInput('config', config);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const links = fixture.nativeElement.querySelectorAll('.build-link') as NodeListOf<HTMLAnchorElement>;
+    expect(links.length).toBe(2);
+    expect(links[0]?.textContent?.trim()).toBe('Build Pipeline');
+    expect(links[0]?.getAttribute('href')).toBe(
+      'https://dev.azure.com/myorg/MyProject/_build/results?buildId=2001'
+    );
+    expect(links[1]?.textContent?.trim()).toBe('2026.07.03.1');
+    expect(links[1]?.getAttribute('href')).toBe(
+      'https://dev.azure.com/myorg/MyProject/_build/results?buildId=2001'
+    );
   });
 });

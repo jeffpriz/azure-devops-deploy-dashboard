@@ -18,7 +18,7 @@ export interface PipelineRun {
   createdDate: string;
   finishedDate: string | null;
   resources?: {
-    pipelines?: Record<string, PipelineResourceEntry>;
+    pipelines?: Record<string, unknown>;
     repositories?: Record<string, unknown>;
   };
 }
@@ -67,6 +67,7 @@ export interface DeploymentStageInfo {
   finishTime: string | null;
   buildPipelineName: string | null;
   buildRunId: number | null;
+  buildUrl: string | null;
   buildNumber: string | null;
   commitId: string | null;
   commitShort: string | null;
