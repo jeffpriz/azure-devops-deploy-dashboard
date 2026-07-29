@@ -408,7 +408,9 @@ export class DashboardComponent implements OnChanges {
     this.tableFocusedRowIndex.set(rowIndex);
     this.tableFocusedColumnIndex.set(columnIndex);
     const selector = `[data-grid-row="${rowIndex}"][data-grid-col="${columnIndex}"]`;
-    this.hostElement.nativeElement.querySelector<HTMLElement>(selector)?.focus();
+    (
+      this.hostElement.nativeElement.querySelector(selector) as HTMLElement | null
+    )?.focus();
   }
 
   private resetTableGridFocus(): void {
