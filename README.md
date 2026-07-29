@@ -41,20 +41,20 @@ On first load the app presents a configuration form. Fill in:
 |-------|-------------|
 | **Organization URL** | Full URL of your Azure DevOps organisation, e.g. `https://dev.azure.com/myorg` |
 | **Project Name** | The Azure DevOps project that owns the pipeline |
-| **Deploy Pipeline ID** | The numeric ID of the **deploy** pipeline (visible in the pipeline URL as `definitionId=…`) |
 | **Personal Access Token** | A PAT with at minimum **Build → Read** scope |
 
-Click **Load Dashboard** to fetch data and render the stage cards.
+Click **Load Dashboard** to open the dashboard, then pick a pipeline from the **Pipeline** dropdown to fetch and render stage cards.
 
 ---
 
 ## How it works
 
-1. **Fetch recent runs** — up to 100 recent runs of the specified deploy pipeline are retrieved from `_apis/pipelines/{id}/runs`.
-2. **Enrich each run** — in parallel (max 10 concurrent requests) both the run detail (`resources.pipelines`) and the build timeline (stage records) are fetched for every run.
-3. **Aggregate by stage** — for each unique pipeline stage the most recent run that contained it is kept.
-4. **Resolve build artifact** — the `resources.pipelines` map on the deploy run points to the actual build pipeline run that was consumed.  That build's `sourceVersion` (commit SHA), branch, repository, and author are fetched from `_apis/build/builds/{id}`.
-5. **Render cards** — one card per stage, sorted by most-recently-started first.
+1. **List pipelines** — available pipelines for the selected project are loaded from `_apis/pipelines`.
+2. **Fetch recent runs** — after selecting a pipeline, up to 100 recent runs are retrieved from `_apis/pipelines/{id}/runs`.
+3. **Enrich each run** — in parallel (max 10 concurrent requests) both the run detail (`resources.pipelines`) and the build timeline (stage records) are fetched for every run.
+4. **Aggregate by stage** — for each unique pipeline stage the most recent run that contained it is kept.
+5. **Resolve build artifact** — the `resources.pipelines` map on the deploy run points to the actual build pipeline run that was consumed.  That build's `sourceVersion` (commit SHA), branch, repository, and author are fetched from `_apis/build/builds/{id}`.
+6. **Render cards** — one card per stage, sorted by most-recently-started first.
 
 ---
 

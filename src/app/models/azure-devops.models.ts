@@ -1,7 +1,7 @@
 export interface PipelineConfig {
   organizationUrl: string;
   projectName: string;
-  pipelineId: number;
+  pipelineId: number | null;
   pat: string;
 }
 

@@ -53,6 +53,27 @@ describe('DashboardComponent', () => {
     expect(emitSpy).toHaveBeenCalledWith(2);
   });
 
+  it('should wait for a pipeline selection before loading dashboard data', async () => {
+    const fixture = TestBed.createComponent(DashboardComponent);
+    fixture.componentRef.setInput('config', { ...config, pipelineId: null });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const select = fixture.nativeElement.querySelector('select') as HTMLSelectElement;
+    expect(select).not.toBeNull();
+    expect(select.value).toBe('');
+    expect(select.options[0]?.textContent?.trim()).toBe('Choose a pipeline');
+    expect(adoService.loadDashboard).not.toHaveBeenCalled();
+
+    const component = fixture.componentInstance;
+    const emitSpy = vi.spyOn(component.pipelineChange, 'emit');
+    select.value = '2';
+    select.dispatchEvent(new Event('change'));
+
+    expect(emitSpy).toHaveBeenCalledWith(2);
+  });
+
   it('should ignore invalid or unchanged pipeline selections', async () => {
     const fixture = TestBed.createComponent(DashboardComponent);
     fixture.componentRef.setInput('config', config);
