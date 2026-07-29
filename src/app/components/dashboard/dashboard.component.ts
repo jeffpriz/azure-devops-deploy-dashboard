@@ -1,5 +1,6 @@
 import {
   Component,
+  ElementRef,
   input,
   output,
   signal,
@@ -13,6 +14,8 @@ import {
   PipelineConfig,
   DeploymentStageInfo,
   PipelineSummary,
+  TabularPipelineData,
+  TabularStageCellInfo,
 } from '../../models/azure-devops.models';
 import { AzureDevOpsService } from '../../services/azure-devops.service';
 
@@ -29,13 +32,21 @@ export class DashboardComponent implements OnChanges {
   readonly reconfigure = output<void>();
 
   private adoService = inject(AzureDevOpsService);
+  private hostElement = inject(ElementRef<HTMLElement>);
 
   stages = signal<DeploymentStageInfo[]>([]);
+  tableData = signal<TabularPipelineData[]>([]);
+  tableSelectedPipelineIds = signal<number[]>([]);
   pipelineOptions = signal<PipelineSummary[]>([]);
   pipelineOptionsLoading = signal(false);
   loading = signal(false);
+  tableLoading = signal(false);
   errorMessage = signal<string | null>(null);
+  tableErrorMessage = signal<string | null>(null);
   lastRefreshed = signal<Date | null>(null);
+  viewMode = signal<'cards' | 'table'>('cards');
+  tableFocusedRowIndex = signal(0);
+  tableFocusedColumnIndex = signal(0);
 
   readonly title = computed(() => {
     const cfg = this.config();
@@ -45,6 +56,32 @@ export class DashboardComponent implements OnChanges {
   });
 
   readonly hasSelectedPipeline = computed(() => this.config().pipelineId !== null);
+  readonly hasSelectedTablePipelines = computed(
+    () => this.tableSelectedPipelineIds().length > 0
+  );
+  readonly hasNoTableData = computed(() => {
+    const data = this.tableData();
+    return data.length === 0 || data.every((pipeline) => Object.keys(pipeline.stages).length === 0);
+  });
+  readonly tableAriaColumnCount = computed(() => this.tableStageColumns().length + 1);
+  readonly tableAriaRowCount = computed(() => this.tableData().length + 1);
+  readonly tableStageColumns = computed(() => {
+    const columns = new Map<string, { name: string; order: number }>();
+    for (const pipeline of this.tableData()) {
+      for (const [stageKey, stage] of Object.entries(pipeline.stages)) {
+        const existing = columns.get(stageKey);
+        if (!existing || stage.stageOrder < existing.order) {
+          columns.set(stageKey, {
+            name: stage.stageName || stageKey,
+            order: stage.stageOrder,
+          });
+        }
+      }
+    }
+    return Array.from(columns.entries())
+      .sort(([, a], [, b]) => a.order - b.order)
+      .map(([key, value]) => ({ key, name: value.name }));
+  });
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['config']) {
@@ -57,6 +94,10 @@ export class DashboardComponent implements OnChanges {
         )
       ) {
         this.loadPipelineOptions();
+        this.tableSelectedPipelineIds.set([]);
+        this.tableData.set([]);
+        this.tableErrorMessage.set(null);
+        this.tableLoading.set(false);
       }
       if (this.hasSelectedPipeline()) {
         this.refresh();
@@ -97,6 +138,7 @@ export class DashboardComponent implements OnChanges {
           if (!currentPipelineOption) {
             this.pipelineOptions.set(pipelines);
             this.pipelineOptionsLoading.set(false);
+            this.syncTableSelectionWithOptions(pipelines);
             return;
           }
 
@@ -107,12 +149,23 @@ export class DashboardComponent implements OnChanges {
               : [currentPipelineOption, ...pipelines]
           );
           this.pipelineOptionsLoading.set(false);
+          this.syncTableSelectionWithOptions(this.pipelineOptions());
         },
         error: () => {
           this.pipelineOptions.set(currentPipelineOption ? [currentPipelineOption] : []);
           this.pipelineOptionsLoading.set(false);
         },
       });
+  }
+
+  private syncTableSelectionWithOptions(options: PipelineSummary[]): void {
+    const validIds = new Set(options.map((option) => option.id));
+    const nextSelection = this.tableSelectedPipelineIds().filter((id) =>
+      validIds.has(id)
+    );
+    if (nextSelection.length !== this.tableSelectedPipelineIds().length) {
+      this.tableSelectedPipelineIds.set(nextSelection);
+    }
   }
 
   private currentPipelineOption(pipelineId: number): PipelineSummary {
@@ -143,6 +196,43 @@ export class DashboardComponent implements OnChanges {
           err?.message ?? 'An unexpected error occurred while loading the dashboard.'
         );
         this.loading.set(false);
+      },
+    });
+  }
+
+  refreshTable(): void {
+    const selectedPipelineIds = this.tableSelectedPipelineIds();
+    if (selectedPipelineIds.length === 0) {
+      this.tableData.set([]);
+      this.resetTableGridFocus();
+      this.tableLoading.set(false);
+      this.tableErrorMessage.set(null);
+      return;
+    }
+
+    this.tableLoading.set(true);
+    this.tableErrorMessage.set(null);
+    this.adoService.loadTabularDashboard(this.config(), selectedPipelineIds).subscribe({
+      next: (data) => {
+        const optionNames = new Map(
+          this.pipelineOptions().map((pipeline) => [pipeline.id, pipeline.name] as const)
+        );
+        this.tableData.set(
+          data.map((pipelineData) => ({
+            ...pipelineData,
+            pipelineName:
+              optionNames.get(pipelineData.pipelineId) ?? pipelineData.pipelineName,
+          }))
+        );
+        this.resetTableGridFocus();
+        this.lastRefreshed.set(new Date());
+        this.tableLoading.set(false);
+      },
+      error: (err: Error) => {
+        this.tableErrorMessage.set(
+          err?.message ?? 'An unexpected error occurred while loading tabular data.'
+        );
+        this.tableLoading.set(false);
       },
     });
   }
@@ -202,6 +292,108 @@ export class DashboardComponent implements OnChanges {
     if (!Number.isInteger(selectedValue) || selectedValue <= 0) return;
     if (selectedValue === this.config().pipelineId) return;
     this.pipelineChange.emit(selectedValue);
+  }
+
+  setViewMode(mode: 'cards' | 'table'): void {
+    this.viewMode.set(mode);
+    if (mode === 'table') {
+      this.resetTableGridFocus();
+    }
+  }
+
+  onTablePipelinesSelected(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    const selectedPipelineIds = Array.from(select.selectedOptions)
+      .map((option) => Number(option.value))
+      .filter((value) => Number.isInteger(value) && value > 0);
+
+    this.tableSelectedPipelineIds.set(selectedPipelineIds);
+    this.refreshTable();
+  }
+
+  tableCellSummary(stage: TabularStageCellInfo): string {
+    const segments = [stage.buildPipelineName, stage.buildNumber].filter(
+      (value): value is string => !!value
+    );
+    return segments.length > 0 ? segments.join(' • ') : '—';
+  }
+
+  tableCellBuildUrl(stage: TabularStageCellInfo): string | null {
+    return stage.buildUrl;
+  }
+
+  tableCellBranchLabel(stage: TabularStageCellInfo): string {
+    return stage.sourceBranch ?? '—';
+  }
+
+  tableCellCommitLabel(stage: TabularStageCellInfo): string {
+    if (stage.commitShort) {
+      return stage.commitShort;
+    }
+    if (stage.commitId) {
+      return stage.commitId.slice(0, 8);
+    }
+    return '—';
+  }
+
+  tableCellTabIndex(rowIndex: number, columnIndex: number): number {
+    return this.tableFocusedRowIndex() === rowIndex &&
+      this.tableFocusedColumnIndex() === columnIndex
+      ? 0
+      : -1;
+  }
+
+  onTableCellFocus(rowIndex: number, columnIndex: number): void {
+    this.tableFocusedRowIndex.set(rowIndex);
+    this.tableFocusedColumnIndex.set(columnIndex);
+  }
+
+  onTableCellKeydown(event: KeyboardEvent, rowIndex: number, columnIndex: number): void {
+    const rowMax = Math.max(this.tableData().length - 1, 0);
+    const columnMax = Math.max(this.tableAriaColumnCount() - 1, 0);
+
+    let nextRow = rowIndex;
+    let nextColumn = columnIndex;
+
+    switch (event.key) {
+      case 'ArrowUp':
+        nextRow = Math.max(0, rowIndex - 1);
+        break;
+      case 'ArrowDown':
+        nextRow = Math.min(rowMax, rowIndex + 1);
+        break;
+      case 'ArrowLeft':
+        nextColumn = Math.max(0, columnIndex - 1);
+        break;
+      case 'ArrowRight':
+        nextColumn = Math.min(columnMax, columnIndex + 1);
+        break;
+      case 'Home':
+        nextColumn = 0;
+        break;
+      case 'End':
+        nextColumn = columnMax;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    this.focusTableCell(nextRow, nextColumn);
+  }
+
+  private focusTableCell(rowIndex: number, columnIndex: number): void {
+    this.tableFocusedRowIndex.set(rowIndex);
+    this.tableFocusedColumnIndex.set(columnIndex);
+    const selector = `[data-grid-row="${rowIndex}"][data-grid-col="${columnIndex}"]`;
+    (
+      this.hostElement.nativeElement.querySelector(selector) as HTMLElement | null
+    )?.focus();
+  }
+
+  private resetTableGridFocus(): void {
+    this.tableFocusedRowIndex.set(0);
+    this.tableFocusedColumnIndex.set(0);
   }
 
 }

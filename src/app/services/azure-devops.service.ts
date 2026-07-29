@@ -26,6 +26,8 @@ import {
   TimelineRecord,
   BuildInfo,
   DeploymentStageInfo,
+  TabularPipelineData,
+  TabularStageCellInfo,
 } from '../models/azure-devops.models';
 
 interface RunsListResponse {
@@ -355,6 +357,42 @@ export class AzureDevOpsService {
     );
   }
 
+  loadTabularDashboard(
+    config: PipelineConfig,
+    pipelineIds: number[]
+  ): Observable<TabularPipelineData[]> {
+    const uniquePipelineIds = Array.from(
+      new Set(pipelineIds.filter((pipelineId) => Number.isInteger(pipelineId) && pipelineId > 0))
+    );
+    if (uniquePipelineIds.length === 0) {
+      return of([]);
+    }
+
+    return from(uniquePipelineIds).pipe(
+      mergeMap((pipelineId) => this.loadTabularPipeline(config, pipelineId), 5),
+      toArray()
+    );
+  }
+
+  private loadTabularPipeline(
+    config: PipelineConfig,
+    pipelineId: number
+  ): Observable<TabularPipelineData> {
+    const scopedConfig: PipelineConfig = { ...config, pipelineId };
+    return this.loadDashboard(scopedConfig).pipe(
+      map((stages) => ({
+        pipelineId,
+        pipelineName: `Pipeline #${pipelineId}`,
+        stages: stages.reduce<Record<string, TabularStageCellInfo>>((acc, stage) => {
+          const stageKey = stage.stageIdentifier || stage.stageName;
+          if (!stageKey) return acc;
+          acc[stageKey] = this.toTabularStageCellInfo(stage);
+          return acc;
+        }, {}),
+      }))
+    );
+  }
+
   /**
    * Aggregates stage data across all runs.
    * Returns a map keyed by stage identifier holding the most recent successful
@@ -680,6 +718,30 @@ export class AzureDevOpsService {
         : null,
       repositoryName: build?.repository?.name ?? null,
       requestedFor: build?.requestedFor?.displayName ?? null,
+    };
+  }
+
+  private toTabularStageCellInfo(stage: DeploymentStageInfo): TabularStageCellInfo {
+    return {
+      stageIdentifier: stage.stageIdentifier,
+      stageName: stage.stageName,
+      stageOrder: stage.stageOrder,
+      runId: stage.runId,
+      runName: stage.runName,
+      runUrl: stage.runUrl,
+      runState: stage.runState,
+      runResult: stage.runResult,
+      startTime: stage.startTime,
+      finishTime: stage.finishTime,
+      buildPipelineName: stage.buildPipelineName,
+      buildRunId: stage.buildRunId,
+      buildUrl: stage.buildUrl,
+      buildNumber: stage.buildNumber,
+      commitId: stage.commitId,
+      commitShort: stage.commitShort,
+      sourceBranch: stage.sourceBranch,
+      repositoryName: stage.repositoryName,
+      requestedFor: stage.requestedFor,
     };
   }
 }
