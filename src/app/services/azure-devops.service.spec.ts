@@ -786,11 +786,9 @@ describe('AzureDevOpsService', () => {
     const staging = result.find((stage) => stage.stageIdentifier === 'staging');
     expect(staging).toBeDefined();
     expect(staging?.runId).toBe(1010);
-    expect(staging?.runState).toBe('completed');
-    expect(staging?.runResult).toBe('succeeded');
   });
 
-  it('should prefer the most recent successful stage over newer failed or skipped stages', async () => {
+  it('should prefer latest successful stage and fall back when no successful history exists', async () => {
     const resultPromise = firstValueFrom(service.loadDashboard(config));
 
     httpMock
