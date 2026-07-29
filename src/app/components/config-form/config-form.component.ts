@@ -20,7 +20,6 @@ export class ConfigFormComponent {
     this.form = this.fb.group({
       organizationUrl: ['', [Validators.required, Validators.pattern(/^https?:\/\/.+/)]],
       projectName: ['', Validators.required],
-      pipelineId: ['', [Validators.required, Validators.min(1)]],
       pat: ['', Validators.required],
     });
 
@@ -30,7 +29,6 @@ export class ConfigFormComponent {
       this.form.patchValue({
         organizationUrl: cfg.organizationUrl,
         projectName: cfg.projectName,
-        pipelineId: cfg.pipelineId,
         pat: cfg.pat,
       });
     });
@@ -49,7 +47,7 @@ export class ConfigFormComponent {
     this.configSubmit.emit({
       organizationUrl: raw.organizationUrl.trim(),
       projectName: raw.projectName.trim(),
-      pipelineId: Number(raw.pipelineId),
+      pipelineId: null,
       pat: raw.pat.trim(),
     });
   }

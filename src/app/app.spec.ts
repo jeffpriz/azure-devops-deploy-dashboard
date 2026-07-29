@@ -35,7 +35,7 @@ describe('App', () => {
     app.onConfigSubmit({
       organizationUrl: 'https://dev.azure.com/myorg',
       projectName: 'MyProject',
-      pipelineId: 1,
+      pipelineId: null,
       pat: 'test-pat',
     });
     fixture.detectChanges();
@@ -54,7 +54,7 @@ describe('App', () => {
     app.onConfigSubmit({
       organizationUrl: 'https://dev.azure.com/myorg',
       projectName: 'MyProject',
-      pipelineId: 1,
+      pipelineId: null,
       pat: 'test-pat',
     });
     fixture.detectChanges();
@@ -71,7 +71,7 @@ describe('App', () => {
     expect(configForm.initialConfig()).toEqual({
       organizationUrl: 'https://dev.azure.com/myorg',
       projectName: 'MyProject',
-      pipelineId: 1,
+      pipelineId: null,
       pat: 'test-pat',
     });
   });
@@ -84,7 +84,7 @@ describe('App', () => {
     app.onConfigSubmit({
       organizationUrl: 'https://dev.azure.com/myorg',
       projectName: 'MyProject',
-      pipelineId: 1,
+      pipelineId: null,
       pat: 'test-pat',
     });
 

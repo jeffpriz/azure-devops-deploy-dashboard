@@ -47,22 +47,6 @@
     </div>
 
     <div class="form-group">
-      <label for="pipelineId">Deploy Pipeline ID</label>
-      <input
-        id="pipelineId"
-        type="number"
-        formControlName="pipelineId"
-        placeholder="42"
-        min="1"
-        [class.error]="isInvalid('pipelineId')"
-        autocomplete="off"
-      />
-      @if (isInvalid('pipelineId')) {
-        <span class="error-msg">A valid pipeline ID (positive integer) is required.</span>
-      }
-    </div>
-
-    <div class="form-group">
       <label for="pat">Personal Access Token (PAT)</label>
       <div class="pat-wrapper">
         <input

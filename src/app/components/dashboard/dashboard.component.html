@@ -9,10 +9,13 @@
     <label class="pipeline-picker">
       <span>Pipeline</span>
       <select
-        [value]="config().pipelineId"
+        [value]="config().pipelineId ?? ''"
         (change)="onPipelineSelected($event)"
         [disabled]="pipelineOptionsLoading() || loading()"
       >
+        @if (!hasSelectedPipeline()) {
+          <option value="" disabled selected>Choose a pipeline</option>
+        }
         @for (pipeline of pipelineOptions(); track pipeline.id) {
           <option [value]="pipeline.id">{{ pipeline.name }} (#{{ pipeline.id }})</option>
         }
@@ -34,7 +37,15 @@
   </div>
 </header>
 
-@if (loading()) {
+@if (!hasSelectedPipeline()) {
+  <div class="empty-state">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+      <path d="M12 2v20"/><path d="M2 12h20"/>
+    </svg>
+    <h3>Select a pipeline</h3>
+    <p>Choose a pipeline from the dropdown above to load deployment stage information.</p>
+  </div>
+} @else if (loading()) {
   <div class="loading-state">
     <div class="spinner"></div>
     <p>Fetching pipeline data from Azure DevOps…</p>

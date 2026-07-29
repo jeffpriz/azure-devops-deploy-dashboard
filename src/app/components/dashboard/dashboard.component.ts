@@ -39,8 +39,12 @@ export class DashboardComponent implements OnChanges {
 
   readonly title = computed(() => {
     const cfg = this.config();
-    return `${cfg.projectName} — Pipeline #${cfg.pipelineId}`;
+    return cfg.pipelineId
+      ? `${cfg.projectName} — Pipeline #${cfg.pipelineId}`
+      : `${cfg.projectName} — Select a pipeline`;
   });
+
+  readonly hasSelectedPipeline = computed(() => this.config().pipelineId !== null);
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['config']) {
@@ -54,7 +58,13 @@ export class DashboardComponent implements OnChanges {
       ) {
         this.loadPipelineOptions();
       }
-      this.refresh();
+      if (this.hasSelectedPipeline()) {
+        this.refresh();
+      } else {
+        this.loading.set(false);
+        this.errorMessage.set(null);
+        this.stages.set([]);
+      }
     }
   }
 
@@ -72,7 +82,9 @@ export class DashboardComponent implements OnChanges {
 
   private loadPipelineOptions(): void {
     const cfg = this.config();
-    const currentPipelineOption = this.currentPipelineOption(cfg.pipelineId);
+    const currentPipelineOption = cfg.pipelineId
+      ? this.currentPipelineOption(cfg.pipelineId)
+      : null;
     this.pipelineOptionsLoading.set(true);
     this.adoService
       .listPipelines({
@@ -82,6 +94,12 @@ export class DashboardComponent implements OnChanges {
       })
       .subscribe({
         next: (pipelines) => {
+          if (!currentPipelineOption) {
+            this.pipelineOptions.set(pipelines);
+            this.pipelineOptionsLoading.set(false);
+            return;
+          }
+
           const selectedExists = pipelines.some((pipeline) => pipeline.id === cfg.pipelineId);
           this.pipelineOptions.set(
             selectedExists
@@ -91,7 +109,7 @@ export class DashboardComponent implements OnChanges {
           this.pipelineOptionsLoading.set(false);
         },
         error: () => {
-          this.pipelineOptions.set([currentPipelineOption]);
+          this.pipelineOptions.set(currentPipelineOption ? [currentPipelineOption] : []);
           this.pipelineOptionsLoading.set(false);
         },
       });
@@ -102,6 +120,8 @@ export class DashboardComponent implements OnChanges {
   }
 
   refresh(): void {
+    if (!this.hasSelectedPipeline()) return;
+
     this.loading.set(true);
     this.errorMessage.set(null);
     this.adoService.loadDashboard(this.config()).subscribe({
