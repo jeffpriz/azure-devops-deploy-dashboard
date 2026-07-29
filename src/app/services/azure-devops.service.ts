@@ -461,6 +461,8 @@ export class AzureDevOpsService {
       this.extractRunIdFromReference(candidate.run?.url) ??
       this.extractRunIdFromReference(candidate.runUri) ??
       this.extractRunIdFromReference(candidate.runURI) ??
+      // Some payloads only expose vstfs references at these top-level fields.
+      // We only extract IDs from non-http values to avoid mismatching web links.
       this.extractRunIdFromNonHttpReference(candidate.webUrl) ??
       this.extractRunIdFromNonHttpReference(candidate.url) ??
       this.extractRunIdFromNonHttpReference(candidate._links?.web?.href);

@@ -170,7 +170,4 @@ export class DashboardComponent implements OnChanges {
     this.pipelineChange.emit(selectedValue);
   }
 
-  canRenderLink(url: string | null | undefined): boolean {
-    return !!url;
-  }
 }

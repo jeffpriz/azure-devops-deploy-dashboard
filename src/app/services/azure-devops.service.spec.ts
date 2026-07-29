@@ -420,6 +420,7 @@ describe('AzureDevOpsService', () => {
     expect(result[0].buildUrl).toBe(
       'https://dev.azure.com/myorg/MyProject/_build/results?buildId=2005'
     );
+    expect(result[0].buildPipelineName).toBe('Build Pipeline');
     expect(result[0].buildNumber).toBe('2026.07.05.1');
   });
 
