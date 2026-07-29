@@ -452,11 +452,23 @@
     font-size: 0.78rem;
     letter-spacing: 0.01em;
     text-transform: uppercase;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  th:first-child {
     white-space: nowrap;
+    min-width: 280px;
   }
 
   tbody tr:nth-child(odd) {
     background: color-mix(in oklab, var(--surface) 92%, var(--surface-raised));
+  }
+
+  .runs-table th:not(:first-child),
+  .stage-cell,
+  td.blank-cell[role='gridcell'] {
+    min-width: 220px;
   }
 
   tbody tr:hover {
