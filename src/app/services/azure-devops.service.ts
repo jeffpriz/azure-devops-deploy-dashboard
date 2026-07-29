@@ -404,7 +404,7 @@ export class AzureDevOpsService {
   ): ResolvedPipelineResource | null {
     const pipelines = run.resources?.pipelines;
     if (!pipelines) return null;
-    const resources = Object.values(pipelines as Record<string, unknown>);
+    const resources = Object.values(pipelines);
     if (resources.length === 0) return null;
 
     for (const resource of resources) {
@@ -461,7 +461,12 @@ export class AzureDevOpsService {
     if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
       return value;
     }
-    if (typeof value === 'string' && /^\d+$/.test(value)) {
+    if (
+      typeof value === 'string' &&
+      value.length > 0 &&
+      value.length <= 15 &&
+      /^\d+$/.test(value)
+    ) {
       const parsed = Number(value);
       return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
     }

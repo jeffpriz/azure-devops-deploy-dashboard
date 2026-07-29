@@ -18,7 +18,7 @@ export interface PipelineRun {
   createdDate: string;
   finishedDate: string | null;
   resources?: {
-    pipelines?: Record<string, PipelineResourceEntry>;
+    pipelines?: Record<string, unknown>;
     repositories?: Record<string, unknown>;
   };
 }
