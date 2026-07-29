@@ -31,7 +31,7 @@ describe('AzureDevOpsService', () => {
     httpMock.verify();
   });
 
-  it('should still surface pipeline resource when run metadata is missing', async () => {
+  it('should still surface pipeline resource and link when run id metadata is missing', async () => {
     const resultPromise = firstValueFrom(service.loadDashboard(config));
 
     httpMock
@@ -75,6 +75,11 @@ describe('AzureDevOpsService', () => {
             upstream: {
               pipeline: { id: 7, name: 'Build Pipeline' },
               runName: '2026.07.01.1',
+              _links: {
+                web: {
+                  href: 'https://dev.azure.com/myorg/MyProject/_build/results?buildId=2000',
+                },
+              },
             },
           },
         },
@@ -109,7 +114,9 @@ describe('AzureDevOpsService', () => {
     const result = await resultPromise;
     expect(result.length).toBe(1);
     expect(result[0].buildRunId).toBeNull();
-    expect(result[0].buildUrl).toBeNull();
+    expect(result[0].buildUrl).toBe(
+      'https://dev.azure.com/myorg/MyProject/_build/results?buildId=2000'
+    );
     expect(result[0].buildPipelineName).toBe('Build Pipeline');
     expect(result[0].buildNumber).toBe('2026.07.01.1');
   });

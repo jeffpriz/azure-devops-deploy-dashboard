@@ -46,6 +46,7 @@ interface ResolvedPipelineResource {
   pipelineName: string | null;
   runId: number | null;
   runName: string | null;
+  webUrl: string | null;
 }
 
 const API_VERSION = '7.1';
@@ -431,6 +432,9 @@ export class AzureDevOpsService {
       runId?: unknown;
       runName?: unknown;
       version?: unknown;
+      url?: unknown;
+      webUrl?: unknown;
+      _links?: { web?: { href?: unknown } };
     };
 
     const pipelineName =
@@ -446,8 +450,12 @@ export class AzureDevOpsService {
     const runName = runNameCandidates.find(
       (value): value is string => typeof value === 'string' && value.length > 0
     ) ?? null;
+    const webUrlCandidates = [candidate.webUrl, candidate.url, candidate._links?.web?.href];
+    const webUrl = webUrlCandidates.find(
+      (value): value is string => typeof value === 'string' && /^https?:\/\//.test(value)
+    ) ?? null;
 
-    if (!pipelineName && !runId && !runName) {
+    if (!pipelineName && !runId && !runName && !webUrl) {
       return null;
     }
 
@@ -455,6 +463,7 @@ export class AzureDevOpsService {
       pipelineName,
       runId,
       runName,
+      webUrl,
     };
   }
 
@@ -495,7 +504,9 @@ export class AzureDevOpsService {
       finishTime: stage.finishTime,
       buildPipelineName: resource?.pipelineName ?? null,
       buildRunId,
-      buildUrl: buildRunId ? this.webPipelineRunUrl(config, buildRunId) : null,
+      buildUrl: buildRunId
+        ? this.webPipelineRunUrl(config, buildRunId)
+        : resource?.webUrl ?? null,
       buildNumber: build?.buildNumber ?? resource?.runName ?? null,
       commitId: commitId,
       commitShort: commitId ? commitId.substring(0, 8) : null,
