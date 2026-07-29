@@ -76,3 +76,36 @@ export interface DeploymentStageInfo {
   repositoryName: string | null;
   requestedFor: string | null;
 }
+
+export interface TabularStageCellInfo {
+  stageIdentifier: string;
+  stageName: string;
+  runState: string;
+  runResult: string | null;
+  startTime: string | null;
+  finishTime: string | null;
+  buildPipelineName: string | null;
+  buildRunId: number | null;
+  buildUrl: string | null;
+  buildNumber: string | null;
+  commitId: string | null;
+  commitShort: string | null;
+  sourceBranch: string | null;
+  repositoryName: string | null;
+  requestedFor: string | null;
+}
+
+export interface TabularPipelineRunRow {
+  runId: number;
+  runName: string;
+  runUrl: string;
+  createdDate: string;
+  finishedDate: string | null;
+  stages: Record<string, TabularStageCellInfo>;
+}
+
+export interface TabularPipelineData {
+  pipelineId: number;
+  pipelineName: string;
+  runs: TabularPipelineRunRow[];
+}

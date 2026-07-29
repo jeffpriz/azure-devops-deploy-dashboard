@@ -13,6 +13,8 @@ import {
   PipelineConfig,
   DeploymentStageInfo,
   PipelineSummary,
+  TabularPipelineData,
+  TabularStageCellInfo,
 } from '../../models/azure-devops.models';
 import { AzureDevOpsService } from '../../services/azure-devops.service';
 
@@ -31,11 +33,16 @@ export class DashboardComponent implements OnChanges {
   private adoService = inject(AzureDevOpsService);
 
   stages = signal<DeploymentStageInfo[]>([]);
+  tableData = signal<TabularPipelineData[]>([]);
+  tableSelectedPipelineIds = signal<number[]>([]);
   pipelineOptions = signal<PipelineSummary[]>([]);
   pipelineOptionsLoading = signal(false);
   loading = signal(false);
+  tableLoading = signal(false);
   errorMessage = signal<string | null>(null);
+  tableErrorMessage = signal<string | null>(null);
   lastRefreshed = signal<Date | null>(null);
+  viewMode = signal<'cards' | 'table'>('cards');
 
   readonly title = computed(() => {
     const cfg = this.config();
@@ -45,6 +52,26 @@ export class DashboardComponent implements OnChanges {
   });
 
   readonly hasSelectedPipeline = computed(() => this.config().pipelineId !== null);
+  readonly hasSelectedTablePipelines = computed(
+    () => this.tableSelectedPipelineIds().length > 0
+  );
+  readonly hasNoTableRuns = computed(() => {
+    const data = this.tableData();
+    return data.length === 0 || data.every((pipeline) => pipeline.runs.length === 0);
+  });
+  readonly tableStageColumns = computed(() => {
+    const columns = new Map<string, string>();
+    for (const pipeline of this.tableData()) {
+      for (const run of pipeline.runs) {
+        for (const [stageKey, stage] of Object.entries(run.stages)) {
+          if (!columns.has(stageKey)) {
+            columns.set(stageKey, stage.stageName || stageKey);
+          }
+        }
+      }
+    }
+    return Array.from(columns.entries()).map(([key, name]) => ({ key, name }));
+  });
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['config']) {
@@ -57,6 +84,10 @@ export class DashboardComponent implements OnChanges {
         )
       ) {
         this.loadPipelineOptions();
+        this.tableSelectedPipelineIds.set([]);
+        this.tableData.set([]);
+        this.tableErrorMessage.set(null);
+        this.tableLoading.set(false);
       }
       if (this.hasSelectedPipeline()) {
         this.refresh();
@@ -97,6 +128,7 @@ export class DashboardComponent implements OnChanges {
           if (!currentPipelineOption) {
             this.pipelineOptions.set(pipelines);
             this.pipelineOptionsLoading.set(false);
+            this.syncTableSelectionWithOptions(pipelines);
             return;
           }
 
@@ -107,12 +139,23 @@ export class DashboardComponent implements OnChanges {
               : [currentPipelineOption, ...pipelines]
           );
           this.pipelineOptionsLoading.set(false);
+          this.syncTableSelectionWithOptions(this.pipelineOptions());
         },
         error: () => {
           this.pipelineOptions.set(currentPipelineOption ? [currentPipelineOption] : []);
           this.pipelineOptionsLoading.set(false);
         },
       });
+  }
+
+  private syncTableSelectionWithOptions(options: PipelineSummary[]): void {
+    const validIds = new Set(options.map((option) => option.id));
+    const nextSelection = this.tableSelectedPipelineIds().filter((id) =>
+      validIds.has(id)
+    );
+    if (nextSelection.length !== this.tableSelectedPipelineIds().length) {
+      this.tableSelectedPipelineIds.set(nextSelection);
+    }
   }
 
   private currentPipelineOption(pipelineId: number): PipelineSummary {
@@ -143,6 +186,41 @@ export class DashboardComponent implements OnChanges {
           err?.message ?? 'An unexpected error occurred while loading the dashboard.'
         );
         this.loading.set(false);
+      },
+    });
+  }
+
+  refreshTable(): void {
+    const selectedPipelineIds = this.tableSelectedPipelineIds();
+    if (selectedPipelineIds.length === 0) {
+      this.tableData.set([]);
+      this.tableLoading.set(false);
+      this.tableErrorMessage.set(null);
+      return;
+    }
+
+    this.tableLoading.set(true);
+    this.tableErrorMessage.set(null);
+    this.adoService.loadTabularDashboard(this.config(), selectedPipelineIds).subscribe({
+      next: (data) => {
+        const optionNames = new Map(
+          this.pipelineOptions().map((pipeline) => [pipeline.id, pipeline.name] as const)
+        );
+        this.tableData.set(
+          data.map((pipelineData) => ({
+            ...pipelineData,
+            pipelineName:
+              optionNames.get(pipelineData.pipelineId) ?? pipelineData.pipelineName,
+          }))
+        );
+        this.lastRefreshed.set(new Date());
+        this.tableLoading.set(false);
+      },
+      error: (err: Error) => {
+        this.tableErrorMessage.set(
+          err?.message ?? 'An unexpected error occurred while loading tabular data.'
+        );
+        this.tableLoading.set(false);
       },
     });
   }
@@ -202,6 +280,31 @@ export class DashboardComponent implements OnChanges {
     if (!Number.isInteger(selectedValue) || selectedValue <= 0) return;
     if (selectedValue === this.config().pipelineId) return;
     this.pipelineChange.emit(selectedValue);
+  }
+
+  setViewMode(mode: 'cards' | 'table'): void {
+    this.viewMode.set(mode);
+  }
+
+  onTablePipelinesSelected(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    const selectedPipelineIds = Array.from(select.selectedOptions)
+      .map((option) => Number(option.value))
+      .filter((value) => Number.isInteger(value) && value > 0);
+
+    this.tableSelectedPipelineIds.set(selectedPipelineIds);
+    this.refreshTable();
+  }
+
+  tableCellSummary(stage: TabularStageCellInfo): string {
+    const segments = [stage.buildPipelineName, stage.buildNumber].filter(
+      (value): value is string => !!value
+    );
+    return segments.length > 0 ? segments.join(' • ') : '—';
+  }
+
+  tableCellBuildUrl(stage: TabularStageCellInfo): string | null {
+    return stage.buildUrl;
   }
 
 }

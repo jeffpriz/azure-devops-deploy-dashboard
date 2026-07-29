@@ -26,6 +26,9 @@ import {
   TimelineRecord,
   BuildInfo,
   DeploymentStageInfo,
+  TabularPipelineData,
+  TabularPipelineRunRow,
+  TabularStageCellInfo,
 } from '../models/azure-devops.models';
 
 interface RunsListResponse {
@@ -355,6 +358,107 @@ export class AzureDevOpsService {
     );
   }
 
+  loadTabularDashboard(
+    config: PipelineConfig,
+    pipelineIds: number[]
+  ): Observable<TabularPipelineData[]> {
+    const uniquePipelineIds = Array.from(
+      new Set(pipelineIds.filter((pipelineId) => Number.isInteger(pipelineId) && pipelineId > 0))
+    );
+    if (uniquePipelineIds.length === 0) {
+      return of([]);
+    }
+
+    return from(uniquePipelineIds).pipe(
+      mergeMap((pipelineId) => this.loadTabularPipeline(config, pipelineId), 5),
+      toArray()
+    );
+  }
+
+  private loadTabularPipeline(
+    config: PipelineConfig,
+    pipelineId: number
+  ): Observable<TabularPipelineData> {
+    const scopedConfig: PipelineConfig = { ...config, pipelineId };
+    const buildCache = new Map<number, Observable<BuildInfo | null>>();
+    const buildByNumberCache = new Map<string, Observable<BuildInfo | null>>();
+
+    const getOrFetchBuild = (buildId: number): Observable<BuildInfo | null> => {
+      if (!buildCache.has(buildId)) {
+        buildCache.set(buildId, this.getBuild(scopedConfig, buildId));
+      }
+      return buildCache.get(buildId)!;
+    };
+
+    const getOrFetchBuildByNumber = (
+      buildNumber: string,
+      definitionId: number | null
+    ): Observable<BuildInfo | null> => {
+      const key = `${definitionId ?? 'none'}:${buildNumber}`;
+      if (!buildByNumberCache.has(key)) {
+        buildByNumberCache.set(
+          key,
+          this.getBuildByNumber(scopedConfig, buildNumber, definitionId)
+        );
+      }
+      return buildByNumberCache.get(key)!;
+    };
+
+    return this.getPipelineRuns(scopedConfig).pipe(
+      switchMap((runs) => {
+        if (!runs || runs.length === 0) {
+          return of([] as TabularPipelineRunRow[]);
+        }
+
+        return from(runs).pipe(
+          mergeMap(
+            (run) =>
+              forkJoin({
+                detail: this.getPipelineRunDetail(scopedConfig, run.id).pipe(
+                  catchError(() => of(run as PipelineRun))
+                ),
+                stages: this.getTimeline(scopedConfig, run.id).pipe(
+                  map((records) => records.filter((record) => record.type === 'Stage'))
+                ),
+              }).pipe(
+                switchMap(({ detail, stages }) => {
+                  const resource = this.extractFirstPipelineResource(detail);
+                  const build$ = resource
+                    ? resource.runId
+                      ? getOrFetchBuild(resource.runId)
+                      : resource.runName
+                        ? getOrFetchBuildByNumber(resource.runName, resource.pipelineId)
+                        : of(null)
+                    : of(null);
+
+                  return build$.pipe(
+                    map((build) =>
+                      this.toTabularPipelineRunRow(
+                        scopedConfig,
+                        run,
+                        stages,
+                        resource,
+                        build
+                      )
+                    )
+                  );
+                })
+              ),
+            10
+          ),
+          toArray()
+        );
+      }),
+      map((rows) => ({
+        pipelineId,
+        pipelineName: `Pipeline #${pipelineId}`,
+        runs: rows.sort(
+          (a, b) => new Date(b.createdDate).getTime() - new Date(a.createdDate).getTime()
+        ),
+      }))
+    );
+  }
+
   /**
    * Aggregates stage data across all runs.
    * Returns a map keyed by stage identifier holding the most recent successful
@@ -680,6 +784,59 @@ export class AzureDevOpsService {
         : null,
       repositoryName: build?.repository?.name ?? null,
       requestedFor: build?.requestedFor?.displayName ?? null,
+    };
+  }
+
+  private toTabularPipelineRunRow(
+    config: PipelineConfig,
+    run: PipelineRun,
+    stages: TimelineRecord[],
+    resource: ResolvedPipelineResource | null,
+    build: BuildInfo | null
+  ): TabularPipelineRunRow {
+    const buildId = this.toPositiveInteger(build?.id);
+    const buildRunId = resource?.runId ?? buildId ?? null;
+    const commitId = build?.sourceVersion ?? null;
+    const buildUrl =
+      resource?.webUrl ??
+      (buildId
+        ? this.webPipelineRunUrl(config, buildId)
+        : buildRunId
+          ? this.webPipelineRunUrl(config, buildRunId)
+          : null);
+
+    const stageCells: Record<string, TabularStageCellInfo> = {};
+    for (const stage of stages) {
+      const stageKey = stage.identifier || stage.name;
+      if (!stageKey) continue;
+      stageCells[stageKey] = {
+        stageIdentifier: stage.identifier || stage.name,
+        stageName: stage.name,
+        runState: stage.state,
+        runResult: stage.result,
+        startTime: stage.startTime,
+        finishTime: stage.finishTime,
+        buildPipelineName: resource?.pipelineName ?? null,
+        buildRunId,
+        buildUrl,
+        buildNumber: build?.buildNumber ?? resource?.runName ?? null,
+        commitId,
+        commitShort: commitId ? commitId.substring(0, 8) : null,
+        sourceBranch: build?.sourceBranch
+          ? build.sourceBranch.replace(/^refs\/heads\//, '')
+          : null,
+        repositoryName: build?.repository?.name ?? null,
+        requestedFor: build?.requestedFor?.displayName ?? null,
+      };
+    }
+
+    return {
+      runId: run.id,
+      runName: run.name,
+      runUrl: this.webPipelineRunUrl(config, run.id),
+      createdDate: run.createdDate,
+      finishedDate: run.finishedDate,
+      stages: stageCells,
     };
   }
 }

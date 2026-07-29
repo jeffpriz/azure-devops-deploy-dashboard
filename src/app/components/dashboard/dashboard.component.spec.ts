@@ -5,6 +5,7 @@ import { AzureDevOpsService } from '../../services/azure-devops.service';
 import {
   DeploymentStageInfo,
   PipelineConfig,
+  TabularPipelineData,
 } from '../../models/azure-devops.models';
 
 describe('DashboardComponent', () => {
@@ -17,6 +18,7 @@ describe('DashboardComponent', () => {
 
   const adoService = {
     loadDashboard: vi.fn(() => of([] as DeploymentStageInfo[])),
+    loadTabularDashboard: vi.fn(() => of([] as TabularPipelineData[])),
     listPipelines: vi.fn(() =>
       of([
         { id: 1, name: 'Deploy API' },
@@ -27,6 +29,7 @@ describe('DashboardComponent', () => {
 
   beforeEach(async () => {
     adoService.loadDashboard.mockClear();
+    adoService.loadTabularDashboard.mockClear();
     adoService.listPipelines.mockClear();
     await TestBed.configureTestingModule({
       imports: [DashboardComponent],
@@ -97,6 +100,7 @@ describe('DashboardComponent', () => {
         {
           stageName: 'Production',
           stageIdentifier: 'production',
+          stageOrder: 1,
           runId: 1001,
           runName: 'Deploy-1001',
           runState: 'completed',
@@ -133,5 +137,131 @@ describe('DashboardComponent', () => {
     expect(links[1]?.getAttribute('href')).toBe(
       'https://dev.azure.com/myorg/MyProject/_build/results?buildId=2001'
     );
+  });
+
+  it('should load tabular data for multi-selected pipelines in table view', async () => {
+    adoService.loadTabularDashboard.mockReturnValueOnce(of([]));
+
+    const fixture = TestBed.createComponent(DashboardComponent);
+    fixture.componentRef.setInput('config', { ...config, pipelineId: null });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    component.setViewMode('table');
+    fixture.detectChanges();
+
+    const select = fixture.nativeElement.querySelector(
+      '.table-pipeline-picker select'
+    ) as HTMLSelectElement;
+    expect(select).not.toBeNull();
+
+    select.options[0]!.selected = true;
+    select.options[1]!.selected = true;
+    select.dispatchEvent(new Event('change'));
+
+    expect(adoService.loadTabularDashboard).toHaveBeenCalledWith(
+      { ...config, pipelineId: null },
+      [1, 2]
+    );
+  });
+
+  it('should render blank cells when a selected pipeline run does not include a stage column', async () => {
+    adoService.loadTabularDashboard.mockReturnValueOnce(
+      of([
+        {
+          pipelineId: 1,
+          pipelineName: 'Deploy API',
+          runs: [
+            {
+              runId: 101,
+              runName: 'Run-101',
+              runUrl: 'https://dev.azure.com/myorg/MyProject/_build/results?buildId=101',
+              createdDate: '2026-07-01T00:00:00Z',
+              finishedDate: '2026-07-01T00:10:00Z',
+              stages: {
+                build: {
+                  stageIdentifier: 'build',
+                  stageName: 'Build',
+                  runState: 'completed',
+                  runResult: 'succeeded',
+                  startTime: null,
+                  finishTime: null,
+                  buildPipelineName: 'Build API',
+                  buildRunId: 9001,
+                  buildUrl: 'https://dev.azure.com/myorg/MyProject/_build/results?buildId=9001',
+                  buildNumber: '2026.07.01.1',
+                  commitId: null,
+                  commitShort: null,
+                  sourceBranch: null,
+                  repositoryName: null,
+                  requestedFor: null,
+                },
+              },
+            },
+          ],
+        },
+        {
+          pipelineId: 2,
+          pipelineName: 'Deploy Web',
+          runs: [
+            {
+              runId: 202,
+              runName: 'Run-202',
+              runUrl: 'https://dev.azure.com/myorg/MyProject/_build/results?buildId=202',
+              createdDate: '2026-07-01T00:00:00Z',
+              finishedDate: '2026-07-01T00:10:00Z',
+              stages: {
+                deploy: {
+                  stageIdentifier: 'deploy',
+                  stageName: 'Deploy',
+                  runState: 'completed',
+                  runResult: 'succeeded',
+                  startTime: null,
+                  finishTime: null,
+                  buildPipelineName: 'Build Web',
+                  buildRunId: 9002,
+                  buildUrl: 'https://dev.azure.com/myorg/MyProject/_build/results?buildId=9002',
+                  buildNumber: '2026.07.01.2',
+                  commitId: null,
+                  commitShort: null,
+                  sourceBranch: null,
+                  repositoryName: null,
+                  requestedFor: null,
+                },
+              },
+            },
+          ],
+        },
+      ] as TabularPipelineData[])
+    );
+
+    const fixture = TestBed.createComponent(DashboardComponent);
+    fixture.componentRef.setInput('config', { ...config, pipelineId: null });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    component.setViewMode('table');
+    fixture.detectChanges();
+
+    const select = fixture.nativeElement.querySelector(
+      '.table-pipeline-picker select'
+    ) as HTMLSelectElement;
+    select.options[0]!.selected = true;
+    select.options[1]!.selected = true;
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+
+    const headerCells = Array.from(
+      fixture.nativeElement.querySelectorAll('.runs-table thead th') as NodeListOf<HTMLElement>
+    ).map((element) => element.textContent?.trim());
+    expect(headerCells).toContain('Build');
+    expect(headerCells).toContain('Deploy');
+
+    const blankCells = fixture.nativeElement.querySelectorAll('.runs-table .blank-cell');
+    expect(blankCells.length).toBeGreaterThan(0);
   });
 });

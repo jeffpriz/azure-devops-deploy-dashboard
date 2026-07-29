@@ -6,23 +6,50 @@
     }
   </div>
   <div class="dash-actions">
-    <label class="pipeline-picker">
-      <span>Pipeline</span>
-      <select
-        [value]="config().pipelineId ?? ''"
-        (change)="onPipelineSelected($event)"
-        [disabled]="pipelineOptionsLoading() || loading()"
+    <div class="view-toggle" role="group" aria-label="Dashboard view mode">
+      <button
+        class="btn-icon"
+        type="button"
+        [class.active]="viewMode() === 'cards'"
+        (click)="setViewMode('cards')"
       >
-        @if (!hasSelectedPipeline()) {
-          <option value="" disabled selected>Choose a pipeline</option>
-        }
-        @for (pipeline of pipelineOptions(); track pipeline.id) {
-          <option [value]="pipeline.id">{{ pipeline.name }} (#{{ pipeline.id }})</option>
-        }
-      </select>
-    </label>
-    <button class="btn-icon" (click)="refresh()" [disabled]="loading()" title="Refresh">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" [class.spinning]="loading()">
+        Card View
+      </button>
+      <button
+        class="btn-icon"
+        type="button"
+        [class.active]="viewMode() === 'table'"
+        (click)="setViewMode('table')"
+      >
+        Table View
+      </button>
+    </div>
+
+    @if (viewMode() === 'cards') {
+      <label class="pipeline-picker">
+        <span>Pipeline</span>
+        <select
+          [value]="config().pipelineId ?? ''"
+          (change)="onPipelineSelected($event)"
+          [disabled]="pipelineOptionsLoading() || loading()"
+        >
+          @if (!hasSelectedPipeline()) {
+            <option value="" disabled selected>Choose a pipeline</option>
+          }
+          @for (pipeline of pipelineOptions(); track pipeline.id) {
+            <option [value]="pipeline.id">{{ pipeline.name }} (#{{ pipeline.id }})</option>
+          }
+        </select>
+      </label>
+    }
+
+    <button
+      class="btn-icon"
+      (click)="viewMode() === 'cards' ? refresh() : refreshTable()"
+      [disabled]="loading() || tableLoading()"
+      title="Refresh"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" [class.spinning]="loading() || tableLoading()">
         <polyline points="23 4 23 10 17 10"/>
         <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
       </svg>
@@ -37,174 +64,266 @@
   </div>
 </header>
 
-@if (!hasSelectedPipeline()) {
-  <div class="empty-state">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
-      <path d="M12 2v20"/><path d="M2 12h20"/>
-    </svg>
-    <h3>Select a pipeline</h3>
-    <p>Choose a pipeline from the dropdown above to load deployment stage information.</p>
-  </div>
-} @else if (loading()) {
-  <div class="loading-state">
-    <div class="spinner"></div>
-    <p>Fetching pipeline data from Azure DevOps…</p>
-  </div>
-} @else if (errorMessage()) {
-  <div class="error-state">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32">
-      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-    </svg>
-    <h3>Failed to load dashboard</h3>
-    <p>{{ errorMessage() }}</p>
-    <p class="hint">Common causes: invalid PAT, incorrect organization URL or project name, pipeline ID not found, or CORS restrictions. See the README for details.</p>
-    <button class="btn-primary" (click)="refresh()">Try Again</button>
-  </div>
-} @else if (stages().length === 0) {
-  <div class="empty-state">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
-      <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
-    </svg>
-    <h3>No deployment stages found</h3>
-    <p>No runs were found for pipeline #{{ config().pipelineId }} in project <strong>{{ config().projectName }}</strong>.</p>
-  </div>
-} @else {
-  <div class="stage-grid">
-    @for (stage of stages(); track stage.stageIdentifier) {
-      <article class="stage-card">
-        <div class="stage-card-header">
-          <div class="stage-name-row">
-            <h3 class="stage-name">{{ stage.stageName }}</h3>
-            <span class="status-badge" [class]="stageStatusClass(stage)">{{ stageStatusLabel(stage) }}</span>
-          </div>
-          <a class="run-link" [href]="stage.runUrl" target="_blank" rel="noopener noreferrer">
-            Run {{ stage.runName }}
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-            </svg>
-          </a>
-        </div>
-
-        <div class="stage-card-body">
-          <!-- Timing -->
-          <div class="info-row">
-            <span class="info-label">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+@if (viewMode() === 'cards') {
+  @if (!hasSelectedPipeline()) {
+    <div class="empty-state">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+        <path d="M12 2v20"/><path d="M2 12h20"/>
+      </svg>
+      <h3>Select a pipeline</h3>
+      <p>Choose a pipeline from the dropdown above to load deployment stage information.</p>
+    </div>
+  } @else if (loading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Fetching pipeline data from Azure DevOps…</p>
+    </div>
+  } @else if (errorMessage()) {
+    <div class="error-state">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="32" height="32">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <h3>Failed to load dashboard</h3>
+      <p>{{ errorMessage() }}</p>
+      <p class="hint">Common causes: invalid PAT, incorrect organization URL or project name, pipeline ID not found, or CORS restrictions. See the README for details.</p>
+      <button class="btn-primary" (click)="refresh()">Try Again</button>
+    </div>
+  } @else if (stages().length === 0) {
+    <div class="empty-state">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+        <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+      </svg>
+      <h3>No deployment stages found</h3>
+      <p>No runs were found for pipeline #{{ config().pipelineId }} in project <strong>{{ config().projectName }}</strong>.</p>
+    </div>
+  } @else {
+    <div class="stage-grid">
+      @for (stage of stages(); track stage.stageIdentifier) {
+        <article class="stage-card">
+          <div class="stage-card-header">
+            <div class="stage-name-row">
+              <h3 class="stage-name">{{ stage.stageName }}</h3>
+              <span class="status-badge" [class]="stageStatusClass(stage)">{{ stageStatusLabel(stage) }}</span>
+            </div>
+            <a class="run-link" [href]="stage.runUrl" target="_blank" rel="noopener noreferrer">
+              Run {{ stage.runName }}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
               </svg>
-              Started
-            </span>
-            <span class="info-value">{{ stage.startTime ? (stage.startTime | date:'medium') : '—' }}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-              </svg>
-              Finished
-            </span>
-            <span class="info-value">{{ stage.finishTime ? (stage.finishTime | date:'medium') : '—' }}</span>
+            </a>
           </div>
 
-          @if (stage.buildPipelineName || stage.buildRunId) {
-            <div class="divider"></div>
-
-            <!-- Build pipeline reference -->
+          <div class="stage-card-body">
             <div class="info-row">
               <span class="info-label">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                  <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                 </svg>
-                Build Pipeline
+                Started
               </span>
-              <span class="info-value">
-                @if (buildResultUrl(stage) && stage.buildPipelineName) {
-                  <a class="build-link" [href]="buildResultUrl(stage)!" target="_blank" rel="noopener noreferrer">
-                    {{ stage.buildPipelineName }}
-                  </a>
-                } @else {
-                  {{ stage.buildPipelineName ?? '—' }}
-                }
-              </span>
+              <span class="info-value">{{ stage.startTime ? (stage.startTime | date:'medium') : '—' }}</span>
             </div>
             <div class="info-row">
               <span class="info-label">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                  <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                 </svg>
-                Build #
+                Finished
               </span>
-              <span class="info-value">
-                @if (buildResultUrl(stage) && stage.buildNumber) {
-                  <a class="build-link" [href]="buildResultUrl(stage)!" target="_blank" rel="noopener noreferrer">
-                    {{ stage.buildNumber }}
-                  </a>
-                } @else {
-                  {{ stage.buildNumber ?? '—' }}
-                }
-              </span>
+              <span class="info-value">{{ stage.finishTime ? (stage.finishTime | date:'medium') : '—' }}</span>
             </div>
 
-            @if (stage.commitId) {
+            @if (stage.buildPipelineName || stage.buildRunId) {
+              <div class="divider"></div>
+
               <div class="info-row">
                 <span class="info-label">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                    <circle cx="12" cy="12" r="4"/><line x1="1.05" y1="12" x2="7" y2="12"/><line x1="17.01" y1="12" x2="22.96" y2="12"/>
+                    <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
                   </svg>
-                  Commit
+                  Build Pipeline
                 </span>
-                <span class="info-value commit-hash">
-                  <code>{{ stage.commitShort }}</code>
-                  <button class="copy-btn" (click)="copyToClipboard(stage.commitId!)" title="Copy full commit SHA">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
-                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                <span class="info-value">
+                  @if (buildResultUrl(stage) && stage.buildPipelineName) {
+                    <a class="build-link" [href]="buildResultUrl(stage)!" target="_blank" rel="noopener noreferrer">
+                      {{ stage.buildPipelineName }}
+                    </a>
+                  } @else {
+                    {{ stage.buildPipelineName ?? '—' }}
+                  }
+                </span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
+                  </svg>
+                  Build #
+                </span>
+                <span class="info-value">
+                  @if (buildResultUrl(stage) && stage.buildNumber) {
+                    <a class="build-link" [href]="buildResultUrl(stage)!" target="_blank" rel="noopener noreferrer">
+                      {{ stage.buildNumber }}
+                    </a>
+                  } @else {
+                    {{ stage.buildNumber ?? '—' }}
+                  }
+                </span>
+              </div>
+
+              @if (stage.commitId) {
+                <div class="info-row">
+                  <span class="info-label">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                      <circle cx="12" cy="12" r="4"/><line x1="1.05" y1="12" x2="7" y2="12"/><line x1="17.01" y1="12" x2="22.96" y2="12"/>
                     </svg>
-                  </button>
-                </span>
-              </div>
-            }
+                    Commit
+                  </span>
+                  <span class="info-value commit-hash">
+                    <code>{{ stage.commitShort }}</code>
+                    <button class="copy-btn" (click)="copyToClipboard(stage.commitId!)" title="Copy full commit SHA">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                      </svg>
+                    </button>
+                  </span>
+                </div>
+              }
 
-            @if (stage.sourceBranch) {
-              <div class="info-row">
-                <span class="info-label">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                    <line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>
-                  </svg>
-                  Branch
-                </span>
-                <span class="info-value"><code>{{ stage.sourceBranch }}</code></span>
-              </div>
-            }
+              @if (stage.sourceBranch) {
+                <div class="info-row">
+                  <span class="info-label">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                      <line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>
+                    </svg>
+                    Branch
+                  </span>
+                  <span class="info-value"><code>{{ stage.sourceBranch }}</code></span>
+                </div>
+              }
 
-            @if (stage.repositoryName) {
-              <div class="info-row">
-                <span class="info-label">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                  </svg>
-                  Repository
-                </span>
-                <span class="info-value">{{ stage.repositoryName }}</span>
-              </div>
-            }
+              @if (stage.repositoryName) {
+                <div class="info-row">
+                  <span class="info-label">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    Repository
+                  </span>
+                  <span class="info-value">{{ stage.repositoryName }}</span>
+                </div>
+              }
 
-            @if (stage.requestedFor) {
-              <div class="info-row">
-                <span class="info-label">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-                  </svg>
-                  Author
-                </span>
-                <span class="info-value">{{ stage.requestedFor }}</span>
-              </div>
+              @if (stage.requestedFor) {
+                <div class="info-row">
+                  <span class="info-label">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    Author
+                  </span>
+                  <span class="info-value">{{ stage.requestedFor }}</span>
+                </div>
+              }
+            } @else {
+              <div class="divider"></div>
+              <p class="no-build-ref">No build pipeline resource reference found for this run.</p>
             }
-          } @else {
-            <div class="divider"></div>
-            <p class="no-build-ref">No build pipeline resource reference found for this run.</p>
-          }
-        </div>
-      </article>
-    }
+          </div>
+        </article>
+      }
+    </div>
+  }
+} @else {
+  <div class="table-controls">
+    <label class="table-pipeline-picker">
+      <span>Pipelines (multi-select)</span>
+      <select
+        multiple
+        size="6"
+        (change)="onTablePipelinesSelected($event)"
+        [disabled]="pipelineOptionsLoading() || tableLoading()"
+      >
+        @for (pipeline of pipelineOptions(); track pipeline.id) {
+          <option [value]="pipeline.id" [selected]="tableSelectedPipelineIds().includes(pipeline.id)">
+            {{ pipeline.name }} (#{{ pipeline.id }})
+          </option>
+        }
+      </select>
+    </label>
   </div>
+
+  @if (!hasSelectedTablePipelines()) {
+    <div class="empty-state">
+      <h3>Select one or more pipelines</h3>
+      <p>Choose multiple pipelines to view runs as table rows and stages as columns.</p>
+    </div>
+  } @else if (tableLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Fetching tabular pipeline data from Azure DevOps…</p>
+    </div>
+  } @else if (tableErrorMessage()) {
+    <div class="error-state">
+      <h3>Failed to load tabular view</h3>
+      <p>{{ tableErrorMessage() }}</p>
+      <button class="btn-primary" (click)="refreshTable()">Try Again</button>
+    </div>
+  } @else if (hasNoTableRuns()) {
+    <div class="empty-state">
+      <h3>No pipeline runs found</h3>
+      <p>No runs were found for the selected pipelines.</p>
+    </div>
+  } @else {
+    <div class="table-wrap">
+      <table class="runs-table">
+        <thead>
+          <tr>
+            <th>Pipeline</th>
+            <th>Run</th>
+            @for (column of tableStageColumns(); track column.key) {
+              <th>{{ column.name }}</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (pipeline of tableData(); track pipeline.pipelineId) {
+            @if (pipeline.runs.length === 0) {
+              <tr>
+                <td class="pipeline-cell">{{ pipeline.pipelineName }} (#{{ pipeline.pipelineId }})</td>
+                <td [attr.colspan]="1 + tableStageColumns().length" class="blank-cell">No runs found</td>
+              </tr>
+            } @else {
+              @for (run of pipeline.runs; track run.runId) {
+                <tr>
+                  <td class="pipeline-cell">{{ pipeline.pipelineName }} (#{{ pipeline.pipelineId }})</td>
+                  <td>
+                    <a class="run-link" [href]="run.runUrl" target="_blank" rel="noopener noreferrer">
+                      {{ run.runName }}
+                    </a>
+                  </td>
+                  @for (column of tableStageColumns(); track column.key) {
+                    @if (run.stages[column.key]; as stage) {
+                      <td>
+                        @if (tableCellBuildUrl(stage)) {
+                          <a class="build-link" [href]="tableCellBuildUrl(stage)!" target="_blank" rel="noopener noreferrer">
+                            {{ tableCellSummary(stage) }}
+                          </a>
+                        } @else {
+                          {{ tableCellSummary(stage) }}
+                        }
+                        <div class="stage-meta">{{ stage.runResult ?? stage.runState }}</div>
+                      </td>
+                    } @else {
+                      <td class="blank-cell">—</td>
+                    }
+                  }
+                </tr>
+              }
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  }
 }
