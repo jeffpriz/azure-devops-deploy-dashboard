@@ -386,7 +386,20 @@ export class AzureDevOpsService {
 
     for (const { run, detail, stages } of sorted) {
       for (const stage of stages) {
-        if (!stageMap.has(stage.identifier)) {
+        const existing = stageMap.get(stage.identifier);
+        if (!existing) {
+          stageMap.set(stage.identifier, {
+            stage,
+            detail,
+            runUrl: this.webPipelineRunUrl(config, run.id),
+          });
+          continue;
+        }
+
+        if (
+          !this.isCompletedStage(existing.stage) &&
+          this.isCompletedStage(stage)
+        ) {
           stageMap.set(stage.identifier, {
             stage,
             detail,
@@ -397,6 +410,10 @@ export class AzureDevOpsService {
     }
 
     return stageMap;
+  }
+
+  private isCompletedStage(stage: TimelineRecord): boolean {
+    return stage.state?.toLowerCase() === 'completed';
   }
 
   /**
