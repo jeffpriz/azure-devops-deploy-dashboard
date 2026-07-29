@@ -250,13 +250,14 @@
           </option>
         }
       </select>
+      <small class="table-picker-hint">Tip: use Ctrl/Cmd + click to select multiple pipelines.</small>
     </label>
   </div>
 
   @if (!hasSelectedTablePipelines()) {
     <div class="empty-state">
       <h3>Select one or more pipelines</h3>
-      <p>Choose multiple pipelines to view runs as table rows and stages as columns.</p>
+      <p>Choose multiple pipelines to compare latest successful stage deployments side by side.</p>
     </div>
   } @else if (tableLoading()) {
     <div class="loading-state">
@@ -276,7 +277,7 @@
     </div>
   } @else {
     <div class="table-wrap">
-      <table class="runs-table">
+      <table class="runs-table improved-table">
         <thead>
           <tr>
             <th>Pipeline</th>
@@ -297,18 +298,24 @@
                 <td class="pipeline-cell">{{ pipeline.pipelineName }} (#{{ pipeline.pipelineId }})</td>
                 @for (column of tableStageColumns(); track column.key) {
                   @if (pipeline.stages[column.key]; as stage) {
-                    <td>
-                      @if (tableCellBuildUrl(stage)) {
-                        <a class="build-link" [href]="tableCellBuildUrl(stage)!" target="_blank" rel="noopener noreferrer">
+                    <td class="stage-cell">
+                      <div class="stage-cell-main">
+                        @if (tableCellBuildUrl(stage)) {
+                          <a class="build-link" [href]="tableCellBuildUrl(stage)!" target="_blank" rel="noopener noreferrer">
+                            {{ tableCellSummary(stage) }}
+                          </a>
+                        } @else {
                           {{ tableCellSummary(stage) }}
+                        }
+                      </div>
+                      <div class="stage-cell-meta">
+                        <span class="status-badge" [class]="tableStageStatusClass(stage)">
+                          {{ tableStageStatusLabel(stage) }}
+                        </span>
+                        <a class="run-link stage-meta-link" [href]="stage.runUrl" target="_blank" rel="noopener noreferrer">
+                          {{ tableCellRunLabel(stage) }}
                         </a>
-                      } @else {
-                        {{ tableCellSummary(stage) }}
-                      }
-                      <div class="stage-meta">{{ stage.runResult ?? stage.runState }}</div>
-                      <a class="run-link stage-meta-link" [href]="stage.runUrl" target="_blank" rel="noopener noreferrer">
-                        {{ tableCellRunLabel(stage) }}
-                      </a>
+                      </div>
                     </td>
                   } @else {
                     <td class="blank-cell">—</td>

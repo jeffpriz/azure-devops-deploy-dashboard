@@ -315,4 +315,36 @@ export class DashboardComponent implements OnChanges {
     return stage.runName ? `Run ${stage.runName}` : `Run #${stage.runId}`;
   }
 
+  tableStageStatusClass(stage: TabularStageCellInfo): string {
+    if (stage.runState !== 'completed') return 'status-running';
+    switch (stage.runResult) {
+      case 'succeeded':
+        return 'status-success';
+      case 'failed':
+        return 'status-failed';
+      case 'canceled':
+        return 'status-canceled';
+      default:
+        return 'status-unknown';
+    }
+  }
+
+  tableStageStatusLabel(stage: TabularStageCellInfo): string {
+    if (stage.runState === 'inProgress') return 'In Progress';
+    if (stage.runState === 'pending') return 'Pending';
+    if (stage.runState === 'canceling') return 'Canceling';
+    switch (stage.runResult) {
+      case 'succeeded':
+        return 'Succeeded';
+      case 'failed':
+        return 'Failed';
+      case 'canceled':
+        return 'Canceled';
+      case 'skipped':
+        return 'Skipped';
+      default:
+        return stage.runResult ?? stage.runState ?? 'Unknown';
+    }
+  }
+
 }
