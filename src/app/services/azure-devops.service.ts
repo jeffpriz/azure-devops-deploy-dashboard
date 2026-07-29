@@ -458,7 +458,7 @@ export class AzureDevOpsService {
     ) ?? null;
     const webUrlCandidates = [candidate.webUrl, candidate.url, candidate._links?.web?.href];
     const webUrl = webUrlCandidates.find(
-      (value): value is string => typeof value === 'string' && /^https?:\/\//.test(value)
+      (value): value is string => typeof value === 'string' && value.length > 0
     ) ?? null;
 
     if (!pipelineName && !runId && !runName && !webUrl) {
@@ -519,8 +519,9 @@ export class AzureDevOpsService {
   ): DeploymentStageInfo {
     const buildRunId = resource?.runId ?? null;
     const commitId = build?.sourceVersion ?? null;
-    const buildUrl = build?.id
-      ? this.webPipelineRunUrl(config, build.id)
+    const buildId = this.toPositiveInteger(build?.id);
+    const buildUrl = buildId
+      ? this.webPipelineRunUrl(config, buildId)
       : resource?.webUrl ??
         (buildRunId ? this.webPipelineRunUrl(config, buildRunId) : null);
     return {
