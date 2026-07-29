@@ -34,6 +34,31 @@
   </div>
 </header>
 
+@if (debugModeEnabled()) {
+  <section class="debug-panel">
+    <div class="debug-panel-header">
+      <h3>Stage Debug</h3>
+      <span>{{ debugEntries().length }} stage classifications</span>
+    </div>
+    @if (debugEntries().length === 0) {
+      <p class="debug-empty">No debug entries yet. Refresh to capture stage classification details.</p>
+    } @else {
+      <div class="debug-list">
+        @for (entry of debugEntries(); track entry.runId + '-' + entry.stageId) {
+          <article class="debug-item" [class.included]="entry.included" [class.excluded]="!entry.included">
+            <div class="debug-item-head">
+              <strong>{{ entry.stageName }}</strong>
+              <span class="debug-status">{{ entry.included ? 'Included' : 'Excluded' }}</span>
+            </div>
+            <div class="debug-meta">Run {{ entry.runId }} | Stage ID: {{ entry.stageId }}</div>
+            <p class="debug-reason">{{ entry.reason }}</p>
+          </article>
+        }
+      </div>
+    }
+  </section>
+}
+
 @if (loading()) {
   <div class="loading-state">
     <div class="spinner"></div>
@@ -54,7 +79,7 @@
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
       <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
     </svg>
-    <h3>No deployment stages found</h3>
+    <h3>No stages found</h3>
     <p>No runs were found for pipeline #{{ config().pipelineId }} in project <strong>{{ config().projectName }}</strong>.</p>
   </div>
 } @else {

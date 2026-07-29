@@ -3,6 +3,7 @@ export interface PipelineConfig {
   projectName: string;
   pipelineId: number;
   pat: string;
+  debugMode?: boolean;
 }
 
 export interface PipelineSummary {
@@ -33,12 +34,18 @@ export interface TimelineRecord {
   parentId: string | null;
   type: string;
   name: string;
+  refName?: string;
   identifier: string;
   state: string;
   result: string | null;
   startTime: string | null;
   finishTime: string | null;
   order: number;
+  task?: {
+    id?: string;
+    name?: string;
+    version?: string;
+  };
   /** Present when the job uses an Azure DevOps environment (YAML deployment jobs). */
   environmentId?: number;
 }
@@ -75,4 +82,12 @@ export interface DeploymentStageInfo {
   sourceBranch: string | null;
   repositoryName: string | null;
   requestedFor: string | null;
+}
+
+export interface DeploymentStageDebugInfo {
+  runId: number;
+  stageId: string;
+  stageName: string;
+  included: boolean;
+  reason: string;
 }

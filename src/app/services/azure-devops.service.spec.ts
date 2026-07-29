@@ -277,7 +277,7 @@ describe('AzureDevOpsService', () => {
     ]);
   });
 
-  it('should only show stages with deployment jobs, not regular stages', async () => {
+  it('should include all stages from the timeline', async () => {
     const resultPromise = firstValueFrom(service.loadDashboard(config));
 
     httpMock
@@ -482,18 +482,13 @@ describe('AzureDevOpsService', () => {
 
     const result = await resultPromise;
     
-    // Should only include the 2 deployment stages, not the build stage
-    expect(result.length).toBe(2);
-    
-    // Verify only deployment stages are returned
+    expect(result.length).toBe(3);
+
     const stageNames = result.map(r => r.stageName).sort();
-    expect(stageNames).toEqual(['Deploy to Dev', 'Deploy to Prod']);
-    
-    // Verify Build stage is NOT in the results
-    expect(result.find(r => r.stageName === 'Build')).toBeUndefined();
+    expect(stageNames).toEqual(['Build', 'Deploy to Dev', 'Deploy to Prod']);
   });
 
-  it('should detect YAML deployment jobs with environmentId (not type Deployment)', async () => {
+  it('should include all stages for YAML job timelines', async () => {
     const resultPromise = firstValueFrom(service.loadDashboard(config));
 
     httpMock
@@ -699,14 +694,213 @@ describe('AzureDevOpsService', () => {
 
     const result = await resultPromise;
     
-    // Should only include the 2 deployment stages (detected via environmentId), not the build stage
-    expect(result.length).toBe(2);
-    
-    // Verify only deployment stages are returned
+    expect(result.length).toBe(3);
+
     const stageNames = result.map(r => r.stageName).sort();
-    expect(stageNames).toEqual(['Deploy to Production', 'Deploy to QA']);
-    
-    // Verify Build stage is NOT in the results
-    expect(result.find(r => r.stageName === 'Build')).toBeUndefined();
+    expect(stageNames).toEqual(['Build', 'Deploy to Production', 'Deploy to QA']);
+  });
+
+  it('should include setup and deploy stages when filtering is disabled', async () => {
+    const resultPromise = firstValueFrom(service.loadDashboard(config));
+
+    httpMock
+      .expectOne(
+        (req) =>
+          req.url ===
+            'https://dev.azure.com/myorg/MyProject/_apis/pipelines/42/runs' &&
+          req.params.get('api-version') === '7.1' &&
+          req.params.get('$top') === '100'
+      )
+      .flush({
+        value: [
+          {
+            id: 6283,
+            name: 'Deploy-6283',
+            state: 'completed',
+            result: 'succeeded',
+            createdDate: '2026-07-27T18:41:00Z',
+            finishedDate: '2026-07-27T18:44:40Z',
+          },
+        ],
+        count: 1,
+      });
+
+    httpMock
+      .expectOne(
+        (req) =>
+          req.url ===
+            'https://dev.azure.com/myorg/MyProject/_apis/pipelines/42/runs/6283' &&
+          req.params.get('api-version') === '7.1'
+      )
+      .flush({
+        id: 6283,
+        name: 'Deploy-6283',
+        state: 'completed',
+        result: 'succeeded',
+        createdDate: '2026-07-27T18:41:00Z',
+        finishedDate: '2026-07-27T18:44:40Z',
+        resources: {
+          pipelines: {
+            upstream: {
+              pipeline: { id: 7, name: 'Build Pipeline' },
+              run: { id: 500, name: 'Build-500' },
+            },
+          },
+        },
+      });
+
+    httpMock
+      .expectOne(
+        (req) =>
+          req.url ===
+            'https://dev.azure.com/myorg/MyProject/_apis/build/builds/6283/timeline' &&
+          req.params.get('api-version') === '7.1'
+      )
+      .flush({
+        records: [
+          {
+            id: 's_setup',
+            parentId: null,
+            type: 'Stage',
+            name: 'Deployment Setup Stage',
+            refName: 'stagedeploySetup',
+            identifier: 'stagedeploySetup',
+            state: 'completed',
+            result: 'succeeded',
+            startTime: '2026-07-27T18:41:33.3733333Z',
+            finishTime: '2026-07-27T18:41:47.9Z',
+            order: 1,
+          },
+          {
+            id: 'p_setup',
+            parentId: 's_setup',
+            type: 'Phase',
+            name: 'Pipeline Setup',
+            refName: 'jobpipelineSetup',
+            identifier: 'stagedeploySetup.jobpipelineSetup',
+            state: 'completed',
+            result: 'succeeded',
+            startTime: '2026-07-27T18:41:33.3733333Z',
+            finishTime: '2026-07-27T18:41:47.8066667Z',
+            order: 1,
+          },
+          {
+            id: 'j_setup',
+            parentId: 'p_setup',
+            type: 'Job',
+            name: 'Pipeline Setup',
+            refName: '__default',
+            identifier: 'stagedeploySetup.jobpipelineSetup.__default',
+            state: 'completed',
+            result: 'succeeded',
+            startTime: '2026-07-27T18:41:33.3733333Z',
+            finishTime: '2026-07-27T18:41:44.9933333Z',
+            order: 1,
+          },
+          {
+            id: 't_setup_set_release',
+            parentId: 'j_setup',
+            type: 'Task',
+            name: 'Set Deploy Release',
+            refName: 'setDeployRelease',
+            identifier: '',
+            state: 'completed',
+            result: 'succeeded',
+            startTime: '2026-07-27T18:41:41.34Z',
+            finishTime: '2026-07-27T18:41:44.6666667Z',
+            order: 4,
+            task: {
+              id: 'e213ff0f-5d5c-4791-802d-52ea3e7be1f1',
+              name: 'PowerShell',
+              version: '2.276.1',
+            },
+          },
+          {
+            id: 's_deploy_dev',
+            parentId: null,
+            type: 'Stage',
+            name: 'DeployDev',
+            refName: 'DeployDev',
+            identifier: 'DeployDev',
+            state: 'completed',
+            result: 'succeeded',
+            startTime: '2026-07-27T18:42:39.1866667Z',
+            finishTime: '2026-07-27T18:44:38.71Z',
+            order: 2,
+          },
+          {
+            id: 'p_deploy_dev',
+            parentId: 's_deploy_dev',
+            type: 'Phase',
+            name: 'DeployWebApp',
+            refName: 'DeployWebApp',
+            identifier: 'DeployDev.DeployWebApp',
+            state: 'completed',
+            result: 'succeeded',
+            startTime: '2026-07-27T18:42:39.1866667Z',
+            finishTime: '2026-07-27T18:44:38.5933333Z',
+            order: 1,
+          },
+          {
+            id: 'j_deploy_dev',
+            parentId: 'p_deploy_dev',
+            type: 'Job',
+            name: 'DeployWebApp',
+            refName: 'DeployWebApp',
+            identifier: 'DeployDev.DeployWebApp.DeployWebApp',
+            state: 'completed',
+            result: 'succeeded',
+            startTime: '2026-07-27T18:42:39.1866667Z',
+            finishTime: '2026-07-27T18:44:30.1433333Z',
+            order: 1,
+          },
+          {
+            id: 't_deploy_web_app',
+            parentId: 'j_deploy_dev',
+            type: 'Task',
+            name: 'Deploy Web App to Azure',
+            refName: 'AzureRmWebAppDeployment',
+            identifier: '',
+            state: 'completed',
+            result: 'succeeded',
+            startTime: '2026-07-27T18:43:36.62Z',
+            finishTime: '2026-07-27T18:44:30.12Z',
+            order: 9,
+            task: {
+              id: '497d490f-eea7-4f2b-ab94-48d9c1acdcb1',
+              name: 'AzureRmWebAppDeployment',
+              version: '5.276.0',
+            },
+          },
+        ],
+      });
+
+    const buildRequests = httpMock.match(
+      (req) =>
+        req.url === 'https://dev.azure.com/myorg/MyProject/_apis/build/builds/500' &&
+        req.params.get('api-version') === '7.1'
+    );
+    expect(buildRequests.length).toBeGreaterThanOrEqual(1);
+    buildRequests.forEach((req) =>
+      req.flush({
+        id: 500,
+        buildNumber: 'Build-500',
+        status: 'completed',
+        result: 'succeeded',
+        startTime: '2026-07-27T18:41:00Z',
+        finishTime: '2026-07-27T18:41:30Z',
+        sourceVersion: 'abc123def456',
+        sourceBranch: 'refs/heads/main',
+        definition: { id: 7, name: 'Build Pipeline' },
+        repository: { id: 'repo1', name: 'my-repo', type: 'git' },
+        requestedFor: { displayName: 'Test User', uniqueName: 'testuser@example.com' },
+      })
+    );
+
+    const result = await resultPromise;
+
+    expect(result.length).toBe(2);
+    const stageNames = result.map((r) => r.stageName).sort();
+    expect(stageNames).toEqual(['DeployDev', 'Deployment Setup Stage']);
   });
 });

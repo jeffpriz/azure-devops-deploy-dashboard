@@ -20,6 +20,7 @@ describe('DashboardComponent', () => {
         { id: 2, name: 'Deploy Web' },
       ])
     ),
+    debugEntries$: of([]),
   };
 
   beforeEach(async () => {

@@ -7,6 +7,7 @@ import {
 } from '@angular/common/http';
 import {
   Observable,
+  BehaviorSubject,
   forkJoin,
   of,
   from,
@@ -27,6 +28,7 @@ import {
   TimelineRecord,
   BuildInfo,
   DeploymentStageInfo,
+  DeploymentStageDebugInfo,
 } from '../models/azure-devops.models';
 
 interface RunsListResponse {
@@ -49,6 +51,9 @@ const MAX_RUNS_TO_FETCH = 100;
 @Injectable({ providedIn: 'root' })
 export class AzureDevOpsService {
   private http = inject(HttpClient);
+  private debugEntriesSubject = new BehaviorSubject<DeploymentStageDebugInfo[]>([]);
+
+  readonly debugEntries$ = this.debugEntriesSubject.asObservable();
 
   private logError(message: string, error: unknown, context?: Record<string, unknown>): void {
     console.error(`[AzureDevOpsService] ${message}`, {
@@ -59,6 +64,24 @@ export class AzureDevOpsService {
 
   private logInfo(message: string, context?: Record<string, unknown>): void {
     console.info(`[AzureDevOpsService] ${message}`, { context });
+  }
+
+  private isDebugEnabled(config: PipelineConfig): boolean {
+    return !!config.debugMode;
+  }
+
+  private logDebug(message: string, context?: Record<string, unknown>): void {
+    console.debug(`[AzureDevOpsService] ${message}`, { context });
+  }
+
+  private clearDebugEntries(): void {
+    this.debugEntriesSubject.next([]);
+  }
+
+  private pushDebugEntries(entries: DeploymentStageDebugInfo[]): void {
+    if (entries.length === 0) return;
+    const current = this.debugEntriesSubject.getValue();
+    this.debugEntriesSubject.next([...current, ...entries]);
   }
 
   private toErrorMessage(error: unknown, fallbackMessage: string): string {
@@ -240,6 +263,8 @@ export class AzureDevOpsService {
   loadDashboard(config: PipelineConfig): Observable<DeploymentStageInfo[]> {
     type StageMap = Map<string, { stage: TimelineRecord; detail: PipelineRun; runUrl: string }>;
 
+    this.clearDebugEntries();
+
     return this.getPipelineRuns(config).pipe(
       switchMap((runs): Observable<StageMap> => {
         if (!runs || runs.length === 0) {
@@ -261,7 +286,7 @@ export class AzureDevOpsService {
                   })
                 ),
                 stages: this.getTimeline(config, run.id).pipe(
-                  map((records) => this.filterDeploymentStages(records))
+                  map((records) => this.filterDeploymentStages(config, run.id, records))
                 ),
               }).pipe(map((result) => ({ run, ...result }))),
             10 // max concurrency
@@ -422,69 +447,45 @@ export class AzureDevOpsService {
   }
 
   /**
-   * Filters timeline records to only include stages that contain deployment jobs.
-   * 
-   * In Azure DevOps, the timeline hierarchy is:
-   *   Stage → Phase → Job
-   * 
-   * Deployment jobs can be identified in two ways:
-   * 1. Records with type 'Deployment' (classic release pipelines)
-   * 2. Records with type 'Job' that have an environmentId (YAML deployment jobs)
-   * 
-   * The deployment record's parentId points to a Phase, which in turn has
-   * a parentId pointing to the Stage. We need to traverse this hierarchy
-   * to find which stages contain deployment jobs.
+   * Returns all stage records from the run timeline.
+   *
+   * Deployment inference based on job/task shape is inconsistent across pipeline
+   * types and task implementations, so this dashboard intentionally shows every
+   * stage and leaves interpretation to the user.
    */
-  private filterDeploymentStages(records: TimelineRecord[]): TimelineRecord[] {
-    // Build a lookup map for quick parent resolution
-    const recordById = new Map<string, TimelineRecord>();
-    for (const record of records) {
-      recordById.set(record.id, record);
-    }
+  private filterDeploymentStages(
+    config: PipelineConfig,
+    runId: number,
+    records: TimelineRecord[]
+  ): TimelineRecord[] {
+    const stageRecords = records.filter((record) => record.type === 'Stage');
 
-    // Find the ancestor Stage ID for a given record by traversing up the parent chain
-    const findAncestorStageId = (record: TimelineRecord): string | null => {
-      let current: TimelineRecord | undefined = record;
-      while (current) {
-        if (current.type === 'Stage') {
-          return current.id;
-        }
-        if (!current.parentId) {
-          return null;
-        }
-        current = recordById.get(current.parentId);
-      }
-      return null;
-    };
+    const debugEntries: DeploymentStageDebugInfo[] = [];
+    if (this.isDebugEnabled(config)) {
+      for (const stage of stageRecords) {
+        const reasonText = 'stage filtering disabled; showing all stages';
 
-    // Check if a record represents a deployment job
-    const isDeploymentJob = (record: TimelineRecord): boolean => {
-      // Classic release pipeline deployment jobs have type 'Deployment'
-      if (record.type === 'Deployment') {
-        return true;
-      }
-      // YAML deployment jobs using environments have type 'Job' with an environmentId
-      if (record.type === 'Job' && record.environmentId != null) {
-        return true;
-      }
-      return false;
-    };
+        debugEntries.push({
+          runId,
+          stageId: stage.id,
+          stageName: stage.name,
+          included: true,
+          reason: reasonText,
+        });
 
-    // Collect all stage IDs that have at least one deployment job descendant
-    const stageIdsWithDeployments = new Set<string>();
-    for (const record of records) {
-      if (isDeploymentJob(record)) {
-        const stageId = findAncestorStageId(record);
-        if (stageId) {
-          stageIdsWithDeployments.add(stageId);
-        }
+        this.logDebug('Deployment stage classification', {
+          runId,
+          stageId: stage.id,
+          stageName: stage.name,
+          included: true,
+          reason: reasonText,
+        });
       }
     }
 
-    // Return only stages that have deployment jobs
-    return records.filter(
-      (r) => r.type === 'Stage' && stageIdsWithDeployments.has(r.id)
-    );
+    this.pushDebugEntries(debugEntries);
+
+    return stageRecords;
   }
 
   private toDeploymentStageInfo(

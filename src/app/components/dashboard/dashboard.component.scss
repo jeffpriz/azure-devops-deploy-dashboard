@@ -112,6 +112,88 @@
   }
 }
 
+.debug-panel {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 1.25rem;
+  padding: 0.9rem;
+
+  .debug-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-bottom: 0.6rem;
+
+    h3 {
+      margin: 0;
+      font-size: 0.92rem;
+      color: var(--text-primary);
+    }
+
+    span {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+  }
+
+  .debug-empty {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+  }
+
+  .debug-list {
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .debug-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.55rem 0.65rem;
+    background: var(--surface);
+
+    &.included {
+      border-left: 3px solid var(--success);
+    }
+
+    &.excluded {
+      border-left: 3px solid var(--danger);
+    }
+
+    .debug-item-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
+
+      strong {
+        font-size: 0.86rem;
+        color: var(--text-primary);
+      }
+
+      .debug-status {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+      }
+    }
+
+    .debug-meta {
+      margin-top: 0.2rem;
+      font-size: 0.74rem;
+      color: var(--text-muted);
+    }
+
+    .debug-reason {
+      margin: 0.35rem 0 0;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+  }
+}
+
 /* Loading state */
 .loading-state {
   display: flex;

@@ -22,6 +22,7 @@ export class ConfigFormComponent {
       projectName: ['', Validators.required],
       pipelineId: ['', [Validators.required, Validators.min(1)]],
       pat: ['', Validators.required],
+      debugMode: [false],
     });
 
     effect(() => {
@@ -32,6 +33,7 @@ export class ConfigFormComponent {
         projectName: cfg.projectName,
         pipelineId: cfg.pipelineId,
         pat: cfg.pat,
+        debugMode: !!cfg.debugMode,
       });
     });
   }
@@ -51,6 +53,7 @@ export class ConfigFormComponent {
       projectName: raw.projectName.trim(),
       pipelineId: Number(raw.pipelineId),
       pat: raw.pat.trim(),
+      debugMode: !!raw.debugMode,
     });
   }
 

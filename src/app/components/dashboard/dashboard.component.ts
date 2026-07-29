@@ -8,11 +8,13 @@ import {
   SimpleChanges,
   inject,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import {
   PipelineConfig,
   DeploymentStageInfo,
   PipelineSummary,
+  DeploymentStageDebugInfo,
 } from '../../models/azure-devops.models';
 import { AzureDevOpsService } from '../../services/azure-devops.service';
 
@@ -36,6 +38,11 @@ export class DashboardComponent implements OnChanges {
   loading = signal(false);
   errorMessage = signal<string | null>(null);
   lastRefreshed = signal<Date | null>(null);
+  debugEntries = toSignal(this.adoService.debugEntries$, {
+    initialValue: [] as DeploymentStageDebugInfo[],
+  });
+
+  readonly debugModeEnabled = computed(() => !!this.config().debugMode);
 
   readonly title = computed(() => {
     const cfg = this.config();
