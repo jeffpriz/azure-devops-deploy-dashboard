@@ -23,7 +23,6 @@ import {
   PipelineConfig,
   PipelineSummary,
   PipelineRun,
-  PipelineResourceEntry,
   TimelineRecord,
   BuildInfo,
   DeploymentStageInfo,
@@ -41,6 +40,12 @@ interface TimelineResponse {
 interface PipelinesListResponse {
   value: PipelineSummary[];
   count: number;
+}
+
+interface ResolvedPipelineResource {
+  pipelineName: string | null;
+  runId: number | null;
+  runName: string | null;
 }
 
 const API_VERSION = '7.1';
@@ -364,7 +369,9 @@ export class AzureDevOpsService {
       const firstPipelineResource = this.extractFirstPipelineResource(detail);
 
       const build$: Observable<BuildInfo | null> = firstPipelineResource
-        ? getOrFetchBuild(firstPipelineResource.run.id)
+        ? firstPipelineResource.runId
+          ? getOrFetchBuild(firstPipelineResource.runId)
+          : of(null)
         : of(null);
 
       return build$.pipe(
@@ -393,15 +400,16 @@ export class AzureDevOpsService {
 
   private extractFirstPipelineResource(
     run: PipelineRun
-  ): PipelineResourceEntry | null {
+  ): ResolvedPipelineResource | null {
     const pipelines = run.resources?.pipelines;
     if (!pipelines) return null;
-    const resources = Object.values(pipelines);
+    const resources = Object.values(pipelines as Record<string, unknown>);
     if (resources.length === 0) return null;
 
     for (const resource of resources) {
-      if (this.isValidPipelineResource(resource)) {
-        return resource;
+      const resolved = this.resolvePipelineResource(resource);
+      if (resolved) {
+        return resolved;
       }
     }
 
@@ -413,21 +421,57 @@ export class AzureDevOpsService {
     return null;
   }
 
-  private isValidPipelineResource(resource: unknown): resource is PipelineResourceEntry {
-    if (!resource || typeof resource !== 'object') return false;
-    const candidate = resource as Partial<PipelineResourceEntry>;
-    return (
-      typeof candidate.run?.id === 'number' &&
-      candidate.run.id > 0 &&
-      typeof candidate.run.name === 'string'
-    );
+  private resolvePipelineResource(resource: unknown): ResolvedPipelineResource | null {
+    if (!resource || typeof resource !== 'object') return null;
+    const candidate = resource as {
+      pipeline?: { name?: unknown };
+      run?: { id?: unknown; name?: unknown };
+      runID?: unknown;
+      runId?: unknown;
+      runName?: unknown;
+      version?: unknown;
+    };
+
+    const pipelineName =
+      typeof candidate.pipeline?.name === 'string' && candidate.pipeline.name.length > 0
+        ? candidate.pipeline.name
+        : null;
+    const runId =
+      this.toPositiveInteger(candidate.run?.id) ??
+      this.toPositiveInteger(candidate.runID) ??
+      this.toPositiveInteger(candidate.runId);
+    const runNameCandidates = [candidate.run?.name, candidate.runName, candidate.version];
+    const runName = runNameCandidates.find(
+      (value): value is string => typeof value === 'string' && value.length > 0
+    ) ?? null;
+
+    if (!pipelineName && !runId && !runName) {
+      return null;
+    }
+
+    return {
+      pipelineName,
+      runId,
+      runName,
+    };
+  }
+
+  private toPositiveInteger(value: unknown): number | null {
+    if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
+      return value;
+    }
+    if (typeof value === 'string' && /^\d+$/.test(value)) {
+      const parsed = Number(value);
+      return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+    }
+    return null;
   }
 
   private toDeploymentStageInfo(
     stage: TimelineRecord,
     detail: PipelineRun,
     runUrl: string,
-    resource: PipelineResourceEntry | null,
+    resource: ResolvedPipelineResource | null,
     build: BuildInfo | null
   ): DeploymentStageInfo {
     const commitId = build?.sourceVersion ?? null;
@@ -441,9 +485,9 @@ export class AzureDevOpsService {
       runUrl,
       startTime: stage.startTime,
       finishTime: stage.finishTime,
-      buildPipelineName: resource?.pipeline?.name ?? null,
-      buildRunId: resource?.run?.id ?? null,
-      buildNumber: build?.buildNumber ?? resource?.run?.name ?? null,
+      buildPipelineName: resource?.pipelineName ?? null,
+      buildRunId: resource?.runId ?? null,
+      buildNumber: build?.buildNumber ?? resource?.runName ?? null,
       commitId: commitId,
       commitShort: commitId ? commitId.substring(0, 8) : null,
       sourceBranch: build?.sourceBranch
