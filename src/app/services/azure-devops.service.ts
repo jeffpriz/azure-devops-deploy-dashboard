@@ -498,11 +498,7 @@ export class AzureDevOpsService {
 
     return forkJoin(infos$).pipe(
       map((results) =>
-        results.sort(
-          (a, b) =>
-            new Date(b.startTime ?? 0).getTime() -
-            new Date(a.startTime ?? 0).getTime()
-        )
+        results.sort((a, b) => a.stageOrder - b.stageOrder)
       )
     );
   }
@@ -665,6 +661,7 @@ export class AzureDevOpsService {
     return {
       stageName: stage.name,
       stageIdentifier: stage.identifier,
+      stageOrder: stage.order,
       runId: detail.id,
       runName: detail.name,
       runState: stage.state,
