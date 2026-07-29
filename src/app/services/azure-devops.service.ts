@@ -520,6 +520,12 @@ export class AzureDevOpsService {
     const buildRunId = resource?.runId ?? null;
     const commitId = build?.sourceVersion ?? null;
     const buildId = this.toPositiveInteger(build?.id);
+    if (build && !buildId) {
+      this.logInfo('Build details were returned without a valid numeric ID.', {
+        runId: detail.id,
+        buildId: build.id,
+      });
+    }
     const buildUrl = buildId
       ? this.webPipelineRunUrl(config, buildId)
       : resource?.webUrl ??
