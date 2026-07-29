@@ -787,6 +787,7 @@ describe('AzureDevOpsService', () => {
     expect(staging).toBeDefined();
     expect(staging?.runId).toBe(1010);
     expect(staging?.runState).toBe('completed');
+    expect(staging?.runResult).toBe('succeeded');
   });
 
   it('should list pipelines for configured organization and project', async () => {

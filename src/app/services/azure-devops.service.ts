@@ -57,6 +57,7 @@ interface ResolvedPipelineResource {
 
 const API_VERSION = '7.1';
 const MAX_RUNS_TO_FETCH = 100;
+const STAGE_STATE_COMPLETED = 'completed';
 
 @Injectable({ providedIn: 'root' })
 export class AzureDevOpsService {
@@ -413,7 +414,7 @@ export class AzureDevOpsService {
   }
 
   private isCompletedStage(stage: TimelineRecord): boolean {
-    return stage.state?.toLowerCase() === 'completed';
+    return stage.state?.toLowerCase() === STAGE_STATE_COMPLETED;
   }
 
   /**
