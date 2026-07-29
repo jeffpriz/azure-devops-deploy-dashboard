@@ -101,8 +101,20 @@ describe('AzureDevOpsService', () => {
             order: 1,
           },
           {
-            id: 'j1',
+            id: 'p1',
             parentId: 's1',
+            type: 'Phase',
+            name: 'deployProd',
+            identifier: 'deployProd',
+            state: 'completed',
+            result: 'succeeded',
+            startTime: '2026-07-01T00:01:30Z',
+            finishTime: '2026-07-01T00:07:30Z',
+            order: 1,
+          },
+          {
+            id: 'j1',
+            parentId: 'p1',
             type: 'Deployment',
             name: 'Deploy to Production',
             identifier: 'deploy_production',
@@ -200,8 +212,20 @@ describe('AzureDevOpsService', () => {
             order: 1,
           },
           {
-            id: 'j2',
+            id: 'p2',
             parentId: 's2',
+            type: 'Phase',
+            name: 'deployStaging',
+            identifier: 'deployStaging',
+            state: 'completed',
+            result: 'succeeded',
+            startTime: '2026-07-02T00:01:30Z',
+            finishTime: '2026-07-02T00:07:30Z',
+            order: 1,
+          },
+          {
+            id: 'j2',
+            parentId: 'p2',
             type: 'Deployment',
             name: 'Deploy to Staging',
             identifier: 'deploy_staging',
@@ -302,10 +326,11 @@ describe('AzureDevOpsService', () => {
         },
       });
 
-    // This timeline contains 3 stages:
-    // - Build stage with regular Job (no deployment)
-    // - Deploy_Dev stage with Deployment job (should be shown)
-    // - Deploy_Prod stage with Deployment job (should be shown)
+    // This timeline contains 3 stages with realistic Azure DevOps hierarchy:
+    // Stage → Phase → Job/Deployment
+    // - Build stage with regular Job (no deployment) - should NOT be shown
+    // - Deploy_Dev stage with Deployment job - SHOULD be shown
+    // - Deploy_Prod stage with Deployment job - SHOULD be shown
     httpMock
       .expectOne(
         (req) =>
@@ -329,8 +354,20 @@ describe('AzureDevOpsService', () => {
             order: 1,
           },
           {
-            id: 'j_build',
+            id: 'p_build',
             parentId: 's_build',
+            type: 'Phase',
+            name: '__default',
+            identifier: '__default',
+            state: 'completed',
+            result: 'succeeded',
+            startTime: '2026-07-03T00:01:10Z',
+            finishTime: '2026-07-03T00:02:50Z',
+            order: 1,
+          },
+          {
+            id: 'j_build',
+            parentId: 'p_build',
             type: 'Job',
             name: 'Build Job',
             identifier: 'build_job',
@@ -340,7 +377,7 @@ describe('AzureDevOpsService', () => {
             finishTime: '2026-07-03T00:02:30Z',
             order: 1,
           },
-          // Deploy_Dev stage with Deployment - SHOULD be shown
+          // Deploy_Dev stage with Deployment (via Phase) - SHOULD be shown
           {
             id: 's_deploy_dev',
             parentId: null,
@@ -354,8 +391,20 @@ describe('AzureDevOpsService', () => {
             order: 2,
           },
           {
-            id: 'j_deploy_dev',
+            id: 'p_deploy_dev',
             parentId: 's_deploy_dev',
+            type: 'Phase',
+            name: 'deployDev',
+            identifier: 'deployDev',
+            state: 'completed',
+            result: 'succeeded',
+            startTime: '2026-07-03T00:03:10Z',
+            finishTime: '2026-07-03T00:04:50Z',
+            order: 1,
+          },
+          {
+            id: 'j_deploy_dev',
+            parentId: 'p_deploy_dev',
             type: 'Deployment',
             name: 'Deploy Dev Job',
             identifier: 'deploy_dev_job',
@@ -365,7 +414,7 @@ describe('AzureDevOpsService', () => {
             finishTime: '2026-07-03T00:04:30Z',
             order: 1,
           },
-          // Deploy_Prod stage with Deployment - SHOULD be shown
+          // Deploy_Prod stage with Deployment (via Phase) - SHOULD be shown
           {
             id: 's_deploy_prod',
             parentId: null,
@@ -379,8 +428,20 @@ describe('AzureDevOpsService', () => {
             order: 3,
           },
           {
-            id: 'j_deploy_prod',
+            id: 'p_deploy_prod',
             parentId: 's_deploy_prod',
+            type: 'Phase',
+            name: 'deployProd',
+            identifier: 'deployProd',
+            state: 'completed',
+            result: 'succeeded',
+            startTime: '2026-07-03T00:05:10Z',
+            finishTime: '2026-07-03T00:07:50Z',
+            order: 1,
+          },
+          {
+            id: 'j_deploy_prod',
+            parentId: 'p_deploy_prod',
             type: 'Deployment',
             name: 'Deploy Prod Job',
             identifier: 'deploy_prod_job',

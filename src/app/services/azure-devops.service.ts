@@ -423,19 +423,49 @@ export class AzureDevOpsService {
 
   /**
    * Filters timeline records to only include stages that contain deployment jobs.
-   * A stage is considered a deployment stage if it has at least one child record
-   * with type 'Deployment'.
+   * 
+   * In Azure DevOps, the timeline hierarchy is:
+   *   Stage → Phase → Job
+   * 
+   * Deployment jobs are identified by records where type is 'Deployment'.
+   * The Deployment record's parentId points to a Phase, which in turn has
+   * a parentId pointing to the Stage. We need to traverse this hierarchy
+   * to find which stages contain deployment jobs.
    */
   private filterDeploymentStages(records: TimelineRecord[]): TimelineRecord[] {
-    // Collect all stage IDs that have at least one deployment job child.
+    // Build a lookup map for quick parent resolution
+    const recordById = new Map<string, TimelineRecord>();
+    for (const record of records) {
+      recordById.set(record.id, record);
+    }
+
+    // Find the ancestor Stage ID for a given record by traversing up the parent chain
+    const findAncestorStageId = (record: TimelineRecord): string | null => {
+      let current: TimelineRecord | undefined = record;
+      while (current) {
+        if (current.type === 'Stage') {
+          return current.id;
+        }
+        if (!current.parentId) {
+          return null;
+        }
+        current = recordById.get(current.parentId);
+      }
+      return null;
+    };
+
+    // Collect all stage IDs that have at least one deployment job descendant
     const stageIdsWithDeployments = new Set<string>();
     for (const record of records) {
-      if (record.type === 'Deployment' && record.parentId) {
-        stageIdsWithDeployments.add(record.parentId);
+      if (record.type === 'Deployment') {
+        const stageId = findAncestorStageId(record);
+        if (stageId) {
+          stageIdsWithDeployments.add(stageId);
+        }
       }
     }
 
-    // Return only stages that have deployment jobs.
+    // Return only stages that have deployment jobs
     return records.filter(
       (r) => r.type === 'Stage' && stageIdsWithDeployments.has(r.id)
     );
