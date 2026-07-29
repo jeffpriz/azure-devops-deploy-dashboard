@@ -42,7 +42,13 @@ interface PipelinesListResponse {
   count: number;
 }
 
+interface BuildsListResponse {
+  value: BuildInfo[];
+  count: number;
+}
+
 interface ResolvedPipelineResource {
+  pipelineId: number | null;
   pipelineName: string | null;
   runId: number | null;
   runName: string | null;
@@ -230,6 +236,60 @@ export class AzureDevOpsService {
       );
   }
 
+  /** Fetch build information by build number (and optionally definition ID). */
+  private getBuildByNumber(
+    config: PipelineConfig,
+    buildNumber: string,
+    definitionId: number | null
+  ): Observable<BuildInfo | null> {
+    const url = this.buildsApiBase(config);
+    const buildNumberQuery = buildNumber.trim();
+
+    const request = (definitionFilter: number | null): Observable<BuildInfo | null> => {
+      let params = new HttpParams()
+        .set('api-version', API_VERSION)
+        .set('buildNumber', buildNumberQuery)
+        .set('$top', '1')
+        .set('queryOrder', 'finishTimeDescending');
+
+      if (definitionFilter) {
+        params = params.set('definitions', String(definitionFilter));
+      }
+
+      return this.http
+        .get<BuildsListResponse>(url, {
+          headers: this.buildHeaders(config.pat),
+          params,
+        })
+        .pipe(
+          map((response) => {
+            const builds = response.value ?? [];
+            return builds[0] ?? null;
+          })
+        );
+    };
+
+    return request(definitionId).pipe(
+      switchMap((build) => {
+        if (build || !definitionId) {
+          return of(build);
+        }
+        // Retry without definition filter for orgs where resource pipeline IDs do not map 1:1.
+        return request(null);
+      }),
+      catchError((error) => {
+        this.logError('Failed to fetch build details by build number.', error, {
+          buildNumber: buildNumberQuery,
+          definitionId,
+          organizationUrl: config.organizationUrl,
+          projectName: config.projectName,
+          pipelineId: config.pipelineId,
+        });
+        return of(null);
+      })
+    );
+  }
+
   /**
    * Main entry-point: loads the dashboard data.
    *
@@ -356,12 +416,27 @@ export class AzureDevOpsService {
 
     // Collect unique build IDs to avoid duplicate fetches.
     const buildCache = new Map<number, Observable<BuildInfo | null>>();
+    const buildByNumberCache = new Map<string, Observable<BuildInfo | null>>();
 
     const getOrFetchBuild = (buildId: number): Observable<BuildInfo | null> => {
       if (!buildCache.has(buildId)) {
         buildCache.set(buildId, this.getBuild(config, buildId));
       }
       return buildCache.get(buildId)!;
+    };
+
+    const getOrFetchBuildByNumber = (
+      buildNumber: string,
+      definitionId: number | null
+    ): Observable<BuildInfo | null> => {
+      const key = `${definitionId ?? 'none'}:${buildNumber}`;
+      if (!buildByNumberCache.has(key)) {
+        buildByNumberCache.set(
+          key,
+          this.getBuildByNumber(config, buildNumber, definitionId)
+        );
+      }
+      return buildByNumberCache.get(key)!;
     };
 
     const entries = Array.from(stageMap.entries());
@@ -372,6 +447,11 @@ export class AzureDevOpsService {
       const build$: Observable<BuildInfo | null> = firstPipelineResource
         ? firstPipelineResource.runId
           ? getOrFetchBuild(firstPipelineResource.runId)
+          : firstPipelineResource.runName
+            ? getOrFetchBuildByNumber(
+              firstPipelineResource.runName,
+              firstPipelineResource.pipelineId
+            )
           : of(null)
         : of(null);
 
@@ -436,7 +516,7 @@ export class AzureDevOpsService {
   private resolvePipelineResource(resource: unknown): ResolvedPipelineResource | null {
     if (!resource || typeof resource !== 'object') return null;
     const candidate = resource as {
-      pipeline?: { name?: unknown };
+      pipeline?: { id?: unknown; name?: unknown };
       run?: { id?: unknown; name?: unknown; uri?: unknown; url?: unknown };
       runID?: unknown;
       runId?: unknown;
@@ -453,6 +533,7 @@ export class AzureDevOpsService {
       typeof candidate.pipeline?.name === 'string' && candidate.pipeline.name.length > 0
         ? candidate.pipeline.name
         : null;
+    const pipelineId = this.toPositiveInteger(candidate.pipeline?.id);
     const runId =
       this.toPositiveInteger(candidate.run?.id) ??
       this.toPositiveInteger(candidate.runID) ??
@@ -481,6 +562,7 @@ export class AzureDevOpsService {
     }
 
     return {
+      pipelineId,
       pipelineName,
       runId,
       runName,
@@ -537,9 +619,9 @@ export class AzureDevOpsService {
     resource: ResolvedPipelineResource | null,
     build: BuildInfo | null
   ): DeploymentStageInfo {
-    const buildRunId = resource?.runId ?? null;
-    const commitId = build?.sourceVersion ?? null;
     const buildId = this.toPositiveInteger(build?.id);
+    const buildRunId = resource?.runId ?? buildId ?? null;
+    const commitId = build?.sourceVersion ?? null;
     if (build && !buildId) {
       this.logInfo('Build details were returned without a valid numeric ID.', {
         runId: detail.id,

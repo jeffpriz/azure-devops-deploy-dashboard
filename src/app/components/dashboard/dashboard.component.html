@@ -107,8 +107,8 @@
                 Build Pipeline
               </span>
               <span class="info-value">
-                @if (stage.buildUrl && stage.buildPipelineName) {
-                  <a class="build-link" [href]="stage.buildUrl" target="_blank" rel="noopener noreferrer">
+                @if (buildResultUrl(stage) && stage.buildPipelineName) {
+                  <a class="build-link" [href]="buildResultUrl(stage)!" target="_blank" rel="noopener noreferrer">
                     {{ stage.buildPipelineName }}
                   </a>
                 } @else {
@@ -124,8 +124,8 @@
                 Build #
               </span>
               <span class="info-value">
-                @if (stage.buildUrl && stage.buildNumber) {
-                  <a class="build-link" [href]="stage.buildUrl" target="_blank" rel="noopener noreferrer">
+                @if (buildResultUrl(stage) && stage.buildNumber) {
+                  <a class="build-link" [href]="buildResultUrl(stage)!" target="_blank" rel="noopener noreferrer">
                     {{ stage.buildNumber }}
                   </a>
                 } @else {
