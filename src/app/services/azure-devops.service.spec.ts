@@ -431,19 +431,7 @@ describe('AzureDevOpsService', () => {
             'https://dev.azure.com/myorg/MyProject/_apis/build/builds/2005' &&
           req.params.get('api-version') === '7.1'
       )
-      .flush({
-        id: 2005,
-        buildNumber: '2026.07.05.1',
-        status: 'completed',
-        result: 'succeeded',
-        startTime: '2026-07-05T00:00:00Z',
-        finishTime: '2026-07-05T00:05:00Z',
-        sourceVersion: '0123456789abcdef0123456789abcdef01234567',
-        sourceBranch: 'refs/heads/main',
-        definition: { id: 7, name: 'Build Pipeline' },
-        repository: { id: 'repo1', name: 'my-repo', type: 'TfsGit' },
-        requestedFor: { displayName: 'Jane Dev', uniqueName: 'jane@example.com' },
-      });
+      .flush({ message: 'not found' }, { status: 404, statusText: 'Not Found' });
 
     const result = await resultPromise;
     expect(result.length).toBe(1);

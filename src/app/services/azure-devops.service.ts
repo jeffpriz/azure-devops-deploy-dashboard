@@ -423,6 +423,16 @@ export class AzureDevOpsService {
     return null;
   }
 
+  private isHttpUrl(value: unknown): value is string {
+    if (typeof value !== 'string' || value.length === 0) return false;
+    try {
+      const parsed = new URL(value);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
   private resolvePipelineResource(resource: unknown): ResolvedPipelineResource | null {
     if (!resource || typeof resource !== 'object') return null;
     const candidate = resource as {
@@ -460,8 +470,8 @@ export class AzureDevOpsService {
       (value): value is string => typeof value === 'string' && value.length > 0
     ) ?? null;
     const webUrlCandidates = [candidate.webUrl, candidate.url, candidate._links?.web?.href];
-    const webUrl = webUrlCandidates.find(
-      (value): value is string => typeof value === 'string' && value.length > 0
+    const webUrl = webUrlCandidates.find((value): value is string =>
+      this.isHttpUrl(value)
     ) ?? null;
 
     if (!pipelineName && !runId && !runName && !webUrl) {
