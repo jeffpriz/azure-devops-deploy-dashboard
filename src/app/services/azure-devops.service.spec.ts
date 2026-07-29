@@ -109,11 +109,30 @@ describe('AzureDevOpsService', () => {
         ],
       });
 
-    httpMock.expectNone((req) => /\/_apis\/build\/builds\/\d+$/.test(req.url));
+    httpMock
+      .expectOne(
+        (req) =>
+          req.url ===
+            'https://dev.azure.com/myorg/MyProject/_apis/build/builds/2000' &&
+          req.params.get('api-version') === '7.1'
+      )
+      .flush({
+        id: 2000,
+        buildNumber: '2026.07.01.1',
+        status: 'completed',
+        result: 'succeeded',
+        startTime: '2026-07-01T00:00:00Z',
+        finishTime: '2026-07-01T00:05:00Z',
+        sourceVersion: '00112233445566778899aabbccddeeff00112233',
+        sourceBranch: 'refs/heads/main',
+        definition: { id: 7, name: 'Build Pipeline' },
+        repository: { id: 'repo1', name: 'my-repo', type: 'TfsGit' },
+        requestedFor: { displayName: 'Jane Dev', uniqueName: 'jane@example.com' },
+      });
 
     const result = await resultPromise;
     expect(result.length).toBe(1);
-    expect(result[0].buildRunId).toBeNull();
+    expect(result[0].buildRunId).toBe(2000);
     expect(result[0].buildUrl).toBe(
       'https://dev.azure.com/myorg/MyProject/_build/results?buildId=2000'
     );
