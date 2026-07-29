@@ -39,6 +39,8 @@ export interface TimelineRecord {
   startTime: string | null;
   finishTime: string | null;
   order: number;
+  /** Present when the job uses an Azure DevOps environment (YAML deployment jobs). */
+  environmentId?: number;
 }
 
 export interface BuildInfo {

@@ -427,8 +427,11 @@ export class AzureDevOpsService {
    * In Azure DevOps, the timeline hierarchy is:
    *   Stage → Phase → Job
    * 
-   * Deployment jobs are identified by records where type is 'Deployment'.
-   * The Deployment record's parentId points to a Phase, which in turn has
+   * Deployment jobs can be identified in two ways:
+   * 1. Records with type 'Deployment' (classic release pipelines)
+   * 2. Records with type 'Job' that have an environmentId (YAML deployment jobs)
+   * 
+   * The deployment record's parentId points to a Phase, which in turn has
    * a parentId pointing to the Stage. We need to traverse this hierarchy
    * to find which stages contain deployment jobs.
    */
@@ -454,10 +457,23 @@ export class AzureDevOpsService {
       return null;
     };
 
+    // Check if a record represents a deployment job
+    const isDeploymentJob = (record: TimelineRecord): boolean => {
+      // Classic release pipeline deployment jobs have type 'Deployment'
+      if (record.type === 'Deployment') {
+        return true;
+      }
+      // YAML deployment jobs using environments have type 'Job' with an environmentId
+      if (record.type === 'Job' && record.environmentId != null) {
+        return true;
+      }
+      return false;
+    };
+
     // Collect all stage IDs that have at least one deployment job descendant
     const stageIdsWithDeployments = new Set<string>();
     for (const record of records) {
-      if (record.type === 'Deployment') {
+      if (isDeploymentJob(record)) {
         const stageId = findAncestorStageId(record);
         if (stageId) {
           stageIdsWithDeployments.add(stageId);
