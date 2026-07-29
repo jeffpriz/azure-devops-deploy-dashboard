@@ -107,7 +107,7 @@
                 Build Pipeline
               </span>
               <span class="info-value">
-                @if (stage.buildUrl && stage.buildPipelineName) {
+                @if (canRenderLink(stage.buildUrl) && stage.buildPipelineName) {
                   <a class="build-link" [href]="stage.buildUrl" target="_blank" rel="noopener noreferrer">
                     {{ stage.buildPipelineName }}
                   </a>
@@ -124,7 +124,7 @@
                 Build #
               </span>
               <span class="info-value">
-                @if (stage.buildUrl && stage.buildNumber) {
+                @if (canRenderLink(stage.buildUrl) && stage.buildNumber) {
                   <a class="build-link" [href]="stage.buildUrl" target="_blank" rel="noopener noreferrer">
                     {{ stage.buildNumber }}
                   </a>

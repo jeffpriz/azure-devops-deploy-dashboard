@@ -169,4 +169,14 @@ export class DashboardComponent implements OnChanges {
     if (selectedValue === this.config().pipelineId) return;
     this.pipelineChange.emit(selectedValue);
   }
+
+  canRenderLink(url: string | null | undefined): boolean {
+    if (!url) return false;
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+    } catch {
+      return false;
+    }
+  }
 }

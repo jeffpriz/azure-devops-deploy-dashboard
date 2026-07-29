@@ -522,6 +522,10 @@ export class AzureDevOpsService {
   ): DeploymentStageInfo {
     const buildRunId = resource?.runId ?? null;
     const commitId = build?.sourceVersion ?? null;
+    const buildUrl = build?.id
+      ? this.webPipelineRunUrl(config, build.id)
+      : resource?.webUrl ??
+        (buildRunId ? this.webPipelineRunUrl(config, buildRunId) : null);
     return {
       stageName: stage.name,
       stageIdentifier: stage.identifier,
@@ -534,9 +538,7 @@ export class AzureDevOpsService {
       finishTime: stage.finishTime,
       buildPipelineName: resource?.pipelineName ?? null,
       buildRunId,
-      buildUrl: buildRunId
-        ? this.webPipelineRunUrl(config, buildRunId)
-        : resource?.webUrl ?? null,
+      buildUrl,
       buildNumber: build?.buildNumber ?? resource?.runName ?? null,
       commitId: commitId,
       commitShort: commitId ? commitId.substring(0, 8) : null,
