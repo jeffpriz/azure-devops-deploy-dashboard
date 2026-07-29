@@ -155,6 +155,7 @@ describe('AzureDevOpsService', () => {
           pipelines: {
             upstream: {
               pipeline: { id: 7, name: 'Build Pipeline' },
+              // Validate compatibility when Azure DevOps returns runID as a string.
               runID: '2001',
               runName: '2026.07.03.1',
             },

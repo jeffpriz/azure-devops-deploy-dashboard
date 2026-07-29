@@ -50,6 +50,7 @@ interface ResolvedPipelineResource {
 
 const API_VERSION = '7.1';
 const MAX_RUNS_TO_FETCH = 100;
+const MAX_SAFE_INTEGER_STRING_LENGTH = 15;
 
 @Injectable({ providedIn: 'root' })
 export class AzureDevOpsService {
@@ -464,7 +465,7 @@ export class AzureDevOpsService {
     if (
       typeof value === 'string' &&
       value.length > 0 &&
-      value.length <= 15 &&
+      value.length <= MAX_SAFE_INTEGER_STRING_LENGTH &&
       /^\d+$/.test(value)
     ) {
       const parsed = Number(value);
