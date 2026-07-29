@@ -790,6 +790,165 @@ describe('AzureDevOpsService', () => {
     expect(staging?.runResult).toBe('succeeded');
   });
 
+  it('should prefer the most recent successful stage over newer failed or skipped stages', async () => {
+    const resultPromise = firstValueFrom(service.loadDashboard(config));
+
+    httpMock
+      .expectOne(
+        (req) =>
+          req.url ===
+            'https://dev.azure.com/myorg/MyProject/_apis/pipelines/42/runs' &&
+          req.params.get('api-version') === '7.1' &&
+          req.params.get('$top') === '100'
+      )
+      .flush({
+        value: [
+          {
+            id: 1013,
+            name: 'Deploy-1013',
+            state: 'completed',
+            result: 'failed',
+            createdDate: '2026-07-13T00:00:00Z',
+            finishedDate: '2026-07-13T00:10:00Z',
+          },
+          {
+            id: 1012,
+            name: 'Deploy-1012',
+            state: 'completed',
+            result: 'succeeded',
+            createdDate: '2026-07-12T00:00:00Z',
+            finishedDate: '2026-07-12T00:10:00Z',
+          },
+          {
+            id: 1011,
+            name: 'Deploy-1011',
+            state: 'completed',
+            result: 'succeeded',
+            createdDate: '2026-07-11T00:00:00Z',
+            finishedDate: '2026-07-11T00:10:00Z',
+          },
+        ],
+        count: 3,
+      });
+
+    for (const runId of [1013, 1012, 1011]) {
+      httpMock
+        .expectOne(
+          (req) =>
+            req.url ===
+              `https://dev.azure.com/myorg/MyProject/_apis/pipelines/42/runs/${runId}` &&
+            req.params.get('api-version') === '7.1'
+        )
+        .flush({
+          id: runId,
+          name: `Deploy-${runId}`,
+          state: 'completed',
+          result: runId === 1013 ? 'failed' : 'succeeded',
+          createdDate: `2026-07-${String(runId - 1000).padStart(2, '0')}T00:00:00Z`,
+          finishedDate: `2026-07-${String(runId - 1000).padStart(2, '0')}T00:10:00Z`,
+        });
+    }
+
+    httpMock
+      .expectOne(
+        (req) =>
+          req.url ===
+            'https://dev.azure.com/myorg/MyProject/_apis/build/builds/1013/timeline' &&
+          req.params.get('api-version') === '7.1'
+      )
+      .flush({
+        records: [
+          {
+            id: 's13-prod',
+            parentId: null,
+            type: 'Stage',
+            name: 'Production',
+            identifier: 'production',
+            state: 'completed',
+            result: 'failed',
+            startTime: '2026-07-13T00:01:00Z',
+            finishTime: '2026-07-13T00:08:00Z',
+            order: 1,
+          },
+          {
+            id: 's13-qa',
+            parentId: null,
+            type: 'Stage',
+            name: 'QA',
+            identifier: 'qa',
+            state: 'completed',
+            result: 'failed',
+            startTime: '2026-07-13T00:02:00Z',
+            finishTime: '2026-07-13T00:06:00Z',
+            order: 2,
+          },
+        ],
+      });
+
+    httpMock
+      .expectOne(
+        (req) =>
+          req.url ===
+            'https://dev.azure.com/myorg/MyProject/_apis/build/builds/1012/timeline' &&
+          req.params.get('api-version') === '7.1'
+      )
+      .flush({
+        records: [
+          {
+            id: 's12-prod',
+            parentId: null,
+            type: 'Stage',
+            name: 'Production',
+            identifier: 'production',
+            state: 'completed',
+            result: 'skipped',
+            startTime: '2026-07-12T00:01:00Z',
+            finishTime: '2026-07-12T00:03:00Z',
+            order: 1,
+          },
+        ],
+      });
+
+    httpMock
+      .expectOne(
+        (req) =>
+          req.url ===
+            'https://dev.azure.com/myorg/MyProject/_apis/build/builds/1011/timeline' &&
+          req.params.get('api-version') === '7.1'
+      )
+      .flush({
+        records: [
+          {
+            id: 's11-prod',
+            parentId: null,
+            type: 'Stage',
+            name: 'Production',
+            identifier: 'production',
+            state: 'completed',
+            result: 'succeeded',
+            startTime: '2026-07-11T00:01:00Z',
+            finishTime: '2026-07-11T00:08:00Z',
+            order: 1,
+          },
+        ],
+      });
+
+    const result = await resultPromise;
+    expect(result.length).toBe(2);
+
+    const production = result.find((stage) => stage.stageIdentifier === 'production');
+    expect(production).toBeDefined();
+    expect(production?.runId).toBe(1011);
+    expect(production?.runState).toBe('completed');
+    expect(production?.runResult).toBe('succeeded');
+
+    const qa = result.find((stage) => stage.stageIdentifier === 'qa');
+    expect(qa).toBeDefined();
+    expect(qa?.runId).toBe(1013);
+    expect(qa?.runState).toBe('completed');
+    expect(qa?.runResult).toBe('failed');
+  });
+
   it('should list pipelines for configured organization and project', async () => {
     const resultPromise = firstValueFrom(
       service.listPipelines({

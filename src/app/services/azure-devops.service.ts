@@ -58,6 +58,7 @@ interface ResolvedPipelineResource {
 const API_VERSION = '7.1';
 const MAX_RUNS_TO_FETCH = 100;
 const STAGE_STATE_COMPLETED = 'completed';
+const STAGE_RESULT_SUCCEEDED = 'succeeded';
 
 @Injectable({ providedIn: 'root' })
 export class AzureDevOpsService {
@@ -300,7 +301,8 @@ export class AzureDevOpsService {
    *       a. Full run detail  → gives us resources.pipelines (the build reference)
    *       b. Timeline records → gives us stage names and states
    *  3. Aggregate: for every unique stage name, keep the entry from the most
-   *     recent run that contained that stage.
+   *     recent successful deployment for that stage; if none are successful,
+   *     keep the most recent observed stage entry.
    *  4. Resolve the build artifact commit: for each stage's associated run,
    *     look up the first pipeline resource and fetch the corresponding build.
    */
@@ -355,8 +357,8 @@ export class AzureDevOpsService {
 
   /**
    * Aggregates stage data across all runs.
-   * Returns a map keyed by stage identifier holding the most recent run
-   * that contained that stage.
+   * Returns a map keyed by stage identifier holding the most recent successful
+   * deployment for that stage, with fallback to the most recent observed stage.
    */
   private aggregateStages(
     config: PipelineConfig,
@@ -398,8 +400,8 @@ export class AzureDevOpsService {
         }
 
         if (
-          !this.isCompletedStage(existing.stage) &&
-          this.isCompletedStage(stage)
+          !this.isSuccessfulStage(existing.stage) &&
+          this.isSuccessfulStage(stage)
         ) {
           stageMap.set(stage.identifier, {
             stage,
@@ -415,6 +417,13 @@ export class AzureDevOpsService {
 
   private isCompletedStage(stage: TimelineRecord): boolean {
     return stage.state?.toLowerCase() === STAGE_STATE_COMPLETED;
+  }
+
+  private isSuccessfulStage(stage: TimelineRecord): boolean {
+    return (
+      this.isCompletedStage(stage) &&
+      stage.result?.toLowerCase() === STAGE_RESULT_SUCCEEDED
+    );
   }
 
   /**
