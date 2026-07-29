@@ -435,7 +435,7 @@
 .runs-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.84rem;
+  font-size: 0.9rem;
   min-width: 960px;
 
   th,
@@ -465,6 +465,29 @@
 
   td {
     color: var(--text-secondary);
+    line-height: 1.45;
+  }
+
+  .build-link,
+  .run-link {
+    color: color-mix(in oklab, var(--text-primary) 78%, var(--accent));
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 2px;
+    transition: color 0.15s ease;
+  }
+
+  .build-link:hover,
+  .run-link:hover {
+    color: var(--text-primary);
+  }
+
+  .build-link:focus-visible,
+  .run-link:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 3px;
   }
 
   [role='rowheader']:focus,
@@ -503,10 +526,11 @@
 }
 
 .stage-cell-main {
-  font-weight: 500;
+  font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 0.35rem;
-  line-height: 1.3;
+  line-height: 1.35;
+  font-size: 0.95rem;
 }
 
 .stage-cell-meta {
@@ -518,7 +542,7 @@
 }
 
 .stage-meta-link {
-  font-size: 0.75rem;
+  font-size: 0.84rem;
 }
 
 @media (max-width: 800px) {
