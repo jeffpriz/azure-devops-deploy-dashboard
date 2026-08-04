@@ -1,5 +1,8 @@
 # Azure DevOps Deploy Dashboard
 
+This is published for view on the [GitHub Pages](https://jeffpriz.github.io/azure-devops-deploy-dashboard) for this repository
+https://jeffpriz.github.io/azure-devops-deploy-dashboard/
+
 An Angular single-page application that gives you a **real-time view of your multi-stage deployment pipeline**.  For every deployment stage it shows:
 
 - Latest pipeline run status (Succeeded / Failed / In Progress / …)
